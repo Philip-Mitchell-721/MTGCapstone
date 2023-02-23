@@ -1,5 +1,7 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Services;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
@@ -27,6 +29,9 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>
     dbContextOptions.UseSqlServer(
         builder.Configuration["ConnectionStrings:CapstoneDbContextConnection"]));
+
+builder.Services.AddIdentity<User, IdentityRole>()
+    .AddEntityFrameworkStores<CapstoneDbContext>();
 
 
 builder.Services.AddHttpClient<ScryfallClient>()
