@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "9yDa19ns0eDW3Dl0wDfyf0PBx9tSL7cp/zkEqU1X+Hb1WEyHwiWwV7C1aUQ5+9/BGhn77G//L1qdQ8sON1nUbg==",
+  "dgSpecHash": "gLgbPgeEKhTFLe7lJkHTbhLuWwIFYxP+/CQcSJBUoYu4iKR32Tr1PFZ/O8Gp3BlclOks0IR26GXtKHAelq+POQ==",
   "success": true,
-  "projectFilePath": "C:\\Users\\Philip\\source\\repos\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
+  "projectFilePath": "C:\\Users\\Philip\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Philip\\.nuget\\packages\\automapper\\12.0.0\\automapper.12.0.0.nupkg.sha512",
     "C:\\Users\\Philip\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.0\\automapper.extensions.microsoft.dependencyinjection.12.0.0.nupkg.sha512",
