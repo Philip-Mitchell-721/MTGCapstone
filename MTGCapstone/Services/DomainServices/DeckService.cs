@@ -231,7 +231,7 @@ namespace MTGCapstone.API.Services.DomainServices
             var like = await _capstoneDbContext.Likes.FindAsync(likeId);
             return like;
         }
-        public async Task<Like> LikeDeckAsync(int deckId, int userId)
+        public async Task<Like> LikeDeckAsync(int deckId, string userId)
         {
             var like = new Like();
 
@@ -243,7 +243,7 @@ namespace MTGCapstone.API.Services.DomainServices
 
             return like;
         }
-        public async Task UnLikeDeckAsync(int deckId, int userId)
+        public async Task UnLikeDeckAsync(int deckId, string userId)
         {
             var like = _capstoneDbContext.Likes.FirstOrDefault(like => like.DeckId == deckId && like.UserId == userId);
             if (like is not null)
@@ -254,7 +254,7 @@ namespace MTGCapstone.API.Services.DomainServices
         }
 
         //Comments
-        public async Task CommentOnDeckAsync(int deckId, int userId, CommentDTO commentDTO)
+        public async Task CommentOnDeckAsync(int deckId, string userId, CommentDTO commentDTO)
         {
             //TODO:Finish this!
         }

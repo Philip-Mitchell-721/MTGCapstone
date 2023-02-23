@@ -34,10 +34,10 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
 
     //Likes
         Task<Like?> GetLikeByIdAsync(int likeId);
-        Task<Like> LikeDeckAsync(int deckId, int userId);
-        Task UnLikeDeckAsync(int deckId, int userId);
+        Task<Like> LikeDeckAsync(int deckId, string userId);
+        Task UnLikeDeckAsync(int deckId, string userId);
 
     //Comments
-       Task CommentOnDeckAsync(int deckId, int userId, CommentDTO commentDTO);
+       Task CommentOnDeckAsync(int deckId, string userId, CommentDTO commentDTO);
     }
 } 
