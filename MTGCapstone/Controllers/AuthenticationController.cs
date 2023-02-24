@@ -82,10 +82,13 @@ namespace MTGCapstone.API.Controllers
         {
             //var hashedPassword = //hash passed in password
             //Move this into it's own service.
-            var user = _capstoneDbContext.Users.FirstOrDefault(user => 
-                user.UserName == userName && user.Password == hashedPassword);
-            
+            var user = new User();
+            //Obviously change this back, this was just to allow me to build.
+                //_capstoneDbContext.Users.FirstOrDefault(user =>
+               //user.UserName == userName && user.Password == hashedPassword);
+
             return user;
+        //TODO: Finish this, IF it's not obsolete after adding Identity.
         }
     }
 }

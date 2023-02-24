@@ -64,7 +64,7 @@ namespace MTGCapstone.API.Controllers
             //if (_deckService.) //TODO: Figure out how to authenticate user id
 
 
-            if (!ModelState.IsValid || deckDTOForCreation.UserId == 0)
+            if (!ModelState.IsValid || deckDTOForCreation.UserId is null)
                 return UnprocessableEntity(ModelState);
 
             var deckVM = await _deckService.CreateDeckAsync(deckDTOForCreation);
@@ -329,11 +329,11 @@ namespace MTGCapstone.API.Controllers
 
             var likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
 
-            if (likingUserIdString is null || !Int32.TryParse(likingUserIdString, out int userId))
+            if (likingUserIdString is null)
                 return BadRequest();
 
 
-            var like = await _deckService.LikeDeckAsync(deckId, userId);
+            var like = await _deckService.LikeDeckAsync(deckId, likingUserIdString);
 
             return NoContent();
 
@@ -346,7 +346,7 @@ namespace MTGCapstone.API.Controllers
                 return NotFound($"No deck found with Id:{deckId}.");
 
             var likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (likingUserIdString is null || !Int32.TryParse(likingUserIdString, out int userId))
+            if (likingUserIdString is null)
                 return BadRequest();
 
             //ASK: How do I know when the UI will have access to IDs?
@@ -355,7 +355,7 @@ namespace MTGCapstone.API.Controllers
             //Leaving this here to confirm, but UI will send bearer token on every request,
             //which has the userId(string) as one of the claims.
 
-            await _deckService.UnLikeDeckAsync(deckId, userId);
+            await _deckService.UnLikeDeckAsync(deckId, likingUserIdString);
 
             return NoContent();
         }
@@ -371,11 +371,11 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
                 return UnprocessableEntity(ModelState);
 
-            var commentingUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (commentingUser is null || !Int32.TryParse(commentingUser, out int userId))
+            var commentingUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (commentingUserId is null)
                 return BadRequest();
 
-            await _deckService.CommentOnDeckAsync(deckId, userId, commentDTO);
+            await _deckService.CommentOnDeckAsync(deckId, commentingUserId, commentDTO);
 
             return NoContent();
 
