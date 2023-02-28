@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -30,8 +32,8 @@ builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>
     dbContextOptions.UseSqlServer(
         builder.Configuration["ConnectionStrings:CapstoneDbContextConnection"]));
 
-builder.Services.AddIdentity<User, IdentityRole>()
-    .AddEntityFrameworkStores<CapstoneDbContext>();
+//builder.Services.AddIdentity<User, IdentityRole>()
+//    .AddEntityFrameworkStores<CapstoneDbContext>();
 
 
 builder.Services.AddHttpClient<ScryfallClient>()
@@ -40,13 +42,16 @@ builder.Services.AddHttpClient<ScryfallClient>()
         AutomaticDecompression = System.Net.DecompressionMethods.GZip
     });
 
-builder.Services.AddAuthentication("Bearer")
+
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
         options.TokenValidationParameters = new()
         {
             ValidateIssuer = true,
             ValidateAudience = true,
+            ValidateLifetime = true,
             ValidateIssuerSigningKey = true,
             ValidIssuer = builder.Configuration["Authentication:Issuer"],
             ValidAudience = builder.Configuration["Authentication:Audience"],

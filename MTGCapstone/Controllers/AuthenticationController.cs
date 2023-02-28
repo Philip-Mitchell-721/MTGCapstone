@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Data.Models;
@@ -16,22 +17,30 @@ namespace MTGCapstone.API.Controllers
     {
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly IConfiguration _configuration;
+        private readonly UserManager<User> _userManager;
 
         public AuthenticationController(CapstoneDbContext capstoneDbContext,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            UserManager<User> userManager)
         {
             _capstoneDbContext = capstoneDbContext 
                 ?? throw new ArgumentNullException(nameof(capstoneDbContext));
             _configuration = configuration 
                 ?? throw new ArgumentNullException(nameof(configuration));
+            _userManager = userManager 
+                ?? throw new ArgumentNullException(nameof(userManager));
         }
 
         [HttpPost("authenticate")]
-        public ActionResult<string> Authenticate(
+        public async Task<ActionResult<string>> Authenticate(
             AuthenticationRequestBody authenticationRequestBody)
         {
+            if (!ModelState.IsValid)
+            {
+                return Unauthorized();
+            }
             //Validate the Username/password
-            var user = ValidateUserCredentials(
+            var user = await ValidateUserCredentials(
                 authenticationRequestBody.UserName,
                 authenticationRequestBody.Password);
             //TODO: Make sure that password in database is Hashed/Encoding.  Look at Identity manager.
@@ -46,18 +55,22 @@ namespace MTGCapstone.API.Controllers
                 SecurityAlgorithms.HmacSha256);
 
             //Make the claims
+            if (user.Id is null || user.UserName is null)
+            {
+                return StatusCode(500);
+            }
             var claimsForToken = new List<Claim>();
-            claimsForToken.Add(new Claim("sub", user.Id.ToString()));
+            claimsForToken.Add(new Claim("sub", user.Id));
             claimsForToken.Add(new Claim("user_name", user.UserName));
-
+            
             //Create the token
             var jwtSecurityToken = new JwtSecurityToken(
-                _configuration["Authentication:Issuer"],
-                _configuration["Authentication:Audience"],
-                claimsForToken,
-                DateTime.UtcNow,
-                DateTime.UtcNow.AddHours(1),
-                signingCredentials);
+                issuer: _configuration["Authentication:Issuer"],
+                audience: _configuration["Authentication:Audience"],
+                claims: claimsForToken,
+                notBefore: DateTime.UtcNow,
+                expires: DateTime.UtcNow.AddHours(1),
+                signingCredentials: signingCredentials);
 
             //Write the token
             var tokenToReturn = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
@@ -78,17 +91,16 @@ namespace MTGCapstone.API.Controllers
             public string? Password { get; set; }
         }
 
-        private User? ValidateUserCredentials(string? userName, string? password)
+        private async Task<User?> ValidateUserCredentials(string? userName, string? password)
         {
-            //var hashedPassword = //hash passed in password
-            //Move this into it's own service.
-            var user = new User();
-            //Obviously change this back, this was just to allow me to build.
-                //_capstoneDbContext.Users.FirstOrDefault(user =>
-               //user.UserName == userName && user.Password == hashedPassword);
+            //_userManager.CheckPasswordAsync
+            var user = _capstoneDbContext.Users.FirstOrDefault(user =>
+               user.UserName == userName);
+
+            if (user == null || await _userManager.CheckPasswordAsync(user, password))
+                return null;
 
             return user;
-        //TODO: Finish this, IF it's not obsolete after adding Identity.
         }
     }
 }

@@ -1,17 +1,25 @@
 ﻿using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
-using MTGCapstone.API.Data.DTOs;
+using MTGCapstone.API.Data.Configurations;
 using MTGCapstone.API.Data.Models;
 
 namespace MTGCapstone.API.DbContexts
 {
-    public class CapstoneDbContext: IdentityDbContext<User>
+    public class CapstoneDbContext: DbContext//: IdentityDbContext<User>
     {
-
-        public CapstoneDbContext(DbContextOptions<CapstoneDbContext> options) : base(options)
+        
+        public CapstoneDbContext(DbContextOptions options) : base(options)
         {
 
         }
+
+        //protected override void OnModelCreating(ModelBuilder modelBuilder)
+        //{
+        //    base.OnModelCreating(modelBuilder);
+
+        //    //modelBuilder.ApplyConfiguration(new EmployeeConfiguration());
+        //    //modelBuilder.ApplyConfiguration(new RoleConfiguration());
+        //}
 
 
         public DbSet<BulkData> BulkData { get; set; } = null!;
@@ -33,7 +41,7 @@ namespace MTGCapstone.API.DbContexts
         public DbSet<PurchaseUris> PurchaseUris { get; set; } = null!;
         public DbSet<RelatedUris> RelatedUris { get; set; } = null!;
         public DbSet<Ruling> Rulings { get; set; } = null!;
-        //public DbSet<User> Users { get; set; } = null!;
+        public DbSet<User> Users { get; set; } = null!;
 
 
         #region Lookups
