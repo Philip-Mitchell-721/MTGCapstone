@@ -3,12 +3,13 @@ using System.Net.Sockets;
 
 namespace MTGCapstone.API.Data.Models
 {
-    public class User// : IdentityUser
+    public class User : IdentityUser<int>
     {
 
         //TODO: Migrate/Update database.  IdentityUser added.
-        public string? Id { get; set; }
-        public string? UserName { get; set; }
+        //public string? Id { get; set; }
+        //public string? UserName { get; set; }
+        //public string? Email { get; set; }
         public string? Bio { get; set; }
         public List<Like> Likes { get; set; } = new List<Like>();
         public List<Comment> Comments { get; set; } = new List<Comment>();

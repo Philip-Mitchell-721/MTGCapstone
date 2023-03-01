@@ -18,10 +18,12 @@ namespace MTGCapstone.API.Controllers
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly IConfiguration _configuration;
         private readonly UserManager<User> _userManager;
+        private readonly IPasswordHasher<User> _passwordHasher;
 
         public AuthenticationController(CapstoneDbContext capstoneDbContext,
             IConfiguration configuration,
-            UserManager<User> userManager)
+            UserManager<User> userManager,
+            IPasswordHasher<User> passwordHasher)
         {
             _capstoneDbContext = capstoneDbContext 
                 ?? throw new ArgumentNullException(nameof(capstoneDbContext));
@@ -29,6 +31,8 @@ namespace MTGCapstone.API.Controllers
                 ?? throw new ArgumentNullException(nameof(configuration));
             _userManager = userManager 
                 ?? throw new ArgumentNullException(nameof(userManager));
+            _passwordHasher = passwordHasher 
+                ?? throw new ArgumentNullException(nameof(passwordHasher));
         }
 
         [HttpPost("authenticate")]
@@ -43,7 +47,6 @@ namespace MTGCapstone.API.Controllers
             var user = await ValidateUserCredentials(
                 authenticationRequestBody.UserName,
                 authenticationRequestBody.Password);
-            //TODO: Make sure that password in database is Hashed/Encoding.  Look at Identity manager.
 
             if (user is null)
                 return Unauthorized();
@@ -55,12 +58,13 @@ namespace MTGCapstone.API.Controllers
                 SecurityAlgorithms.HmacSha256);
 
             //Make the claims
-            if (user.Id is null || user.UserName is null)
+            if (user.Id is 0 || user.UserName is null)
             {
                 return StatusCode(500);
             }
+
             var claimsForToken = new List<Claim>();
-            claimsForToken.Add(new Claim("sub", user.Id));
+            claimsForToken.Add(new Claim("sub", user.Id.ToString()));
             claimsForToken.Add(new Claim("user_name", user.UserName));
             
             //Create the token
@@ -96,6 +100,9 @@ namespace MTGCapstone.API.Controllers
             //_userManager.CheckPasswordAsync
             var user = _capstoneDbContext.Users.FirstOrDefault(user =>
                user.UserName == userName);
+
+            //Could also check the password this way?
+            //_passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
 
             if (user == null || await _userManager.CheckPasswordAsync(user, password))
                 return null;

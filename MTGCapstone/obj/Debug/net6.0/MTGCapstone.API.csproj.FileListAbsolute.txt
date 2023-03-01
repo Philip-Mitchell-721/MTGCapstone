@@ -547,3 +547,4 @@ C:\Users\Philip\Documents\GitHub\MTGCapstone\MTGCapstone\obj\Debug\net6.0\scoped
 C:\Users\Philip\Documents\GitHub\MTGCapstone\MTGCapstone\obj\Debug\net6.0\MTGCapstone.API.csproj.CopyComplete
 C:\Users\Philip\Documents\GitHub\MTGCapstone\MTGCapstone\obj\Debug\net6.0\MTGCapstone.API.genruntimeconfig.cache
 C:\Users\Philip\Documents\GitHub\MTGCapstone\MTGCapstone\obj\Debug\net6.0\ref\MTGCapstone.API.dll
+C:\Users\Philip\Documents\GitHub\MTGCapstone\MTGCapstone\bin\Debug\net6.0\Microsoft.IdentityModel.Abstractions.dll

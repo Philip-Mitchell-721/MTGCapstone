@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.Build.Framework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Data.Models;
@@ -32,7 +33,7 @@ builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>
     dbContextOptions.UseSqlServer(
         builder.Configuration["ConnectionStrings:CapstoneDbContextConnection"]));
 
-//builder.Services.AddIdentity<User, IdentityRole>()
+//builder.Services.AddIdentityCore<User>();
 //    .AddEntityFrameworkStores<CapstoneDbContext>();
 
 
