@@ -34,8 +34,11 @@ builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>
     dbContextOptions.UseSqlServer(
         builder.Configuration["ConnectionStrings:CapstoneDbContextConnection"]));
 
-builder.Services.AddIdentity<User, IdentityRole<int>>()
-    .AddEntityFrameworkStores<CapstoneDbContext>();
+builder.Services.AddIdentity<User, IdentityRole<int>>(opt =>
+{
+    opt.User.RequireUniqueEmail = true;
+})
+.AddEntityFrameworkStores<CapstoneDbContext>();
 
 
 builder.Services.AddHttpClient<ScryfallClient>()

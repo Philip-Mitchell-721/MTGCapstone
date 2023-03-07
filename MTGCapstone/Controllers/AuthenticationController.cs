@@ -75,7 +75,7 @@ namespace MTGCapstone.API.Controllers
                     ModelState.TryAddModelError(error.Code, error.Description);
                 }
 
-                return BadRequest(ModelState);
+                return StatusCode(500, ModelState); 
             }
 
             return NoContent();
