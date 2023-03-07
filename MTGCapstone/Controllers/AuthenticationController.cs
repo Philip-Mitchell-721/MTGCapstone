@@ -1,9 +1,12 @@
-﻿using Microsoft.AspNetCore.Http;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Models.Identity;
 using MTGCapstone.API.DbContexts;
+using MTGCapstone.API.Services;
 using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -15,99 +18,67 @@ namespace MTGCapstone.API.Controllers
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
-        private readonly CapstoneDbContext _capstoneDbContext;
-        private readonly IConfiguration _configuration;
+        private readonly IAccountService _accountService;
         private readonly UserManager<User> _userManager;
-        private readonly IPasswordHasher<User> _passwordHasher;
+        private readonly IMapper _mapper;
 
-        public AuthenticationController(CapstoneDbContext capstoneDbContext,
-            IConfiguration configuration,
+        //TODO: Remove injected services that have now been moved.
+
+        public AuthenticationController(IAccountService accountService,
             UserManager<User> userManager,
-            IPasswordHasher<User> passwordHasher)
+            IMapper mapper)
         {
-            _capstoneDbContext = capstoneDbContext 
-                ?? throw new ArgumentNullException(nameof(capstoneDbContext));
-            _configuration = configuration 
-                ?? throw new ArgumentNullException(nameof(configuration));
+            _accountService = accountService 
+                ?? throw new ArgumentNullException(nameof(accountService));
             _userManager = userManager 
                 ?? throw new ArgumentNullException(nameof(userManager));
-            _passwordHasher = passwordHasher 
-                ?? throw new ArgumentNullException(nameof(passwordHasher));
+            _mapper = mapper 
+                ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpPost("authenticate")]
+        [HttpPost("signin")]
         public async Task<ActionResult<string>> Authenticate(
             AuthenticationRequestBody authenticationRequestBody)
         {
             if (!ModelState.IsValid)
-            {
                 return Unauthorized();
-            }
+            
             //Validate the Username/password
-            var user = await ValidateUserCredentials(
+            var user = await _accountService.ValidateUserCredentialsAsync(
                 authenticationRequestBody.UserName,
                 authenticationRequestBody.Password);
 
-            if (user is null)
+            if (user is null) 
                 return Unauthorized();
 
-            //Create Key and Credentials
-            var securityKey = new SymmetricSecurityKey(
-                Encoding.ASCII.GetBytes(_configuration["Authentication:SecretForKey"])); 
-            var signingCredentials = new SigningCredentials(securityKey,
-                SecurityAlgorithms.HmacSha256);
-
-            //Make the claims
-            if (user.Id is 0 || user.UserName is null)
-            {
-                return StatusCode(500);
-            }
-
-            var claimsForToken = new List<Claim>();
-            claimsForToken.Add(new Claim("sub", user.Id.ToString()));
-            claimsForToken.Add(new Claim("user_name", user.UserName));
-            
-            //Create the token
-            var jwtSecurityToken = new JwtSecurityToken(
-                issuer: _configuration["Authentication:Issuer"],
-                audience: _configuration["Authentication:Audience"],
-                claims: claimsForToken,
-                notBefore: DateTime.UtcNow,
-                expires: DateTime.UtcNow.AddHours(1),
-                signingCredentials: signingCredentials);
-
-            //Write the token
-            var tokenToReturn = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
+            //Create Access Token
+            var tokenToReturn = _accountService.CreateJwt(user);
 
             return Ok(tokenToReturn);
-
-
         }
 
-        //This class won't be used outside of this controller, so we can scope it here
-        //or move it into it's own folder.
-        public class AuthenticationRequestBody
+        [HttpPost("register")]
+        public async Task<IActionResult> Register(UserRegistrationModel userRegistrationModel)
         {
-            [Required]
-            public string? UserName { get; set; }
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
+            }
 
-            [Required]
-            public string? Password { get; set; }
-        }
+            var user = _mapper.Map<User>(userRegistrationModel);
 
-        private async Task<User?> ValidateUserCredentials(string? userName, string? password)
-        {
-            //_userManager.CheckPasswordAsync
-            var user = _capstoneDbContext.Users.FirstOrDefault(user =>
-               user.UserName == userName);
+            var result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
+            if (!result.Succeeded)
+            {
+                foreach (var error in result.Errors)
+                {
+                    ModelState.TryAddModelError(error.Code, error.Description);
+                }
 
-            //Could also check the password this way?
-            //_passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+                return BadRequest(ModelState);
+            }
 
-            if (user == null || await _userManager.CheckPasswordAsync(user, password))
-                return null;
-
-            return user;
+            return NoContent();
         }
     }
 }
