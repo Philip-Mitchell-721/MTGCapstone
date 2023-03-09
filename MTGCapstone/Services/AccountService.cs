@@ -44,13 +44,15 @@ namespace MTGCapstone.API.Services
             claimsForToken.Add(new Claim("user_name", user.UserName));
 
             //Create the token
-            var jwtSecurityToken = new JwtSecurityToken(
-                issuer: _configuration["Authentication:Issuer"],
-                audience: _configuration["Authentication:Audience"],
-                claims: claimsForToken,
-                notBefore: DateTime.UtcNow,
-                expires: DateTime.UtcNow.AddHours(1),
-                signingCredentials: signingCredentials);
+            var jwtSecurityToken = new JwtSecurityToken
+                (
+                    issuer: _configuration["Authentication:Issuer"],
+                    audience: _configuration["Authentication:Audience"],
+                    claims: claimsForToken,
+                    notBefore: DateTime.UtcNow,
+                    expires: DateTime.UtcNow.AddHours(1),
+                    signingCredentials: signingCredentials
+                );
 
             //Write the token
             var tokenToReturn = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);

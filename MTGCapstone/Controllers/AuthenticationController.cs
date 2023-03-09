@@ -22,7 +22,6 @@ namespace MTGCapstone.API.Controllers
         private readonly UserManager<User> _userManager;
         private readonly IMapper _mapper;
 
-        //TODO: Remove injected services that have now been moved.
 
         public AuthenticationController(IAccountService accountService,
             UserManager<User> userManager,
@@ -36,7 +35,7 @@ namespace MTGCapstone.API.Controllers
                 ?? throw new ArgumentNullException(nameof(mapper));
         }
 
-        [HttpPost("signin")]
+        [HttpPost("login")]
         public async Task<ActionResult<string>> Authenticate(
             AuthenticationRequestBody authenticationRequestBody)
         {

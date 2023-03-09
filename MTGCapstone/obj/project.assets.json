@@ -10908,24 +10908,19 @@
     ]
   },
   "packageFolders": {
-    "C:\\Users\\Philip\\.nuget\\packages\\": {},
-    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+    "C:\\Users\\pmitchell\\.nuget\\packages\\": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "C:\\Users\\Philip\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
+      "projectUniqueName": "C:\\Users\\pmitchell\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
       "projectName": "MTGCapstone.API",
-      "projectPath": "C:\\Users\\Philip\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
-      "packagesPath": "C:\\Users\\Philip\\.nuget\\packages\\",
-      "outputPath": "C:\\Users\\Philip\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\obj\\",
+      "projectPath": "C:\\Users\\pmitchell\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
+      "packagesPath": "C:\\Users\\pmitchell\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\pmitchell\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\obj\\",
       "projectStyle": "PackageReference",
-      "fallbackFolders": [
-        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
-      ],
       "configFilePaths": [
-        "C:\\Users\\Philip\\AppData\\Roaming\\NuGet\\NuGet.Config",
-        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Users\\pmitchell\\AppData\\Roaming\\NuGet\\NuGet.Config",
         "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
       ],
       "originalTargetFrameworks": [
@@ -11025,7 +11020,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\6.0.401\\RuntimeIdentifierGraph.json"
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\7.0.102\\RuntimeIdentifierGraph.json"
       }
     }
   }
