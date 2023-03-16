@@ -25,7 +25,7 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddTransient<IScryfallApiService, ScryfallApiService>();
 builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IDeckService, DeckService>();
-builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddTransient<IPropertyMappingService, PropertyMappingService>();
 
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());

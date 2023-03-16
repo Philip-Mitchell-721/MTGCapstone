@@ -1,16 +1,12 @@
 ﻿using AutoMapper;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.IdentityModel.Tokens;
+using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
+using MTGCapstone.API.Data.Tokens;
 using MTGCapstone.API.DbContexts;
-using MTGCapstone.API.Services;
-using System.ComponentModel.DataAnnotations;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
+using IAuthService = MTGCapstone.API.Services.IAuthService;
 
 namespace MTGCapstone.API.Controllers
 {
@@ -18,21 +14,21 @@ namespace MTGCapstone.API.Controllers
     [ApiController]
     public class AuthenticationController : ControllerBase
     {
-        private readonly IAccountService _accountService;
+        private readonly IAuthService _authService;
         private readonly UserManager<User> _userManager;
         private readonly IMapper _mapper;
 
-
-        public AuthenticationController(IAccountService accountService,
+        public AuthenticationController(IAuthService authService,
             UserManager<User> userManager,
             IMapper mapper)
         {
-            _accountService = accountService 
-                ?? throw new ArgumentNullException(nameof(accountService));
+            _authService = authService 
+                ?? throw new ArgumentNullException(nameof(authService));
             _userManager = userManager 
                 ?? throw new ArgumentNullException(nameof(userManager));
             _mapper = mapper 
                 ?? throw new ArgumentNullException(nameof(mapper));
+            
         }
 
         [HttpPost("login")]
@@ -41,17 +37,23 @@ namespace MTGCapstone.API.Controllers
         {
             if (!ModelState.IsValid)
                 return Unauthorized();
-            
-            //Validate the Username/password
-            var user = await _accountService.ValidateUserCredentialsAsync(
-                authenticationRequestBody.UserName,
-                authenticationRequestBody.Password);
 
-            if (user is null) 
+            TokenResponse tokenResponse = _authService.Login();
+            ////Validate the Username/password
+            //var user = await _authService.ValidateUserCredentialsAsync(
+            //    authenticationRequestBody.UserName,
+            //    authenticationRequestBody.Password);
+
+            //if (user is null) 
+            //    return Unauthorized();
+
+            ////Create Access Token
+            //var tokenToReturn = _authService.CreateAccessToken(user);
+
+            if (!tokenResponse.Success)
+            {
                 return Unauthorized();
-
-            //Create Access Token
-            var tokenToReturn = _accountService.CreateJwt(user);
+            }
 
             return Ok(tokenToReturn);
         }
@@ -78,6 +80,24 @@ namespace MTGCapstone.API.Controllers
             }
 
             return NoContent();
+        }
+
+        [HttpPost("refresh")]
+        public async Task<ActionResult<TokenResponse>> Refresh(RefreshTokenDTO refresh)
+        {
+            if (!ModelState.IsValid || String.IsNullOrWhiteSpace(refresh.Token) || String.IsNullOrWhiteSpace(refresh.RefreshToken))
+                return BadRequest(ModelState);
+
+            // get tokenResponse from service
+            var tokenResponse = new TokenResponse(false, "", new AccessToken("", 0, new RefreshToken("", 0)));
+            //await _authService.RefreshToken(refresh);
+
+            if (!tokenResponse.Success)
+                return BadRequest(tokenResponse.Message);
+            if (tokenResponse.Token is null)
+                return StatusCode(500);
+            //Don't want refresh token to be part of access token. TODO: fix this
+            return Ok(tokenResponse.Token);
         }
     }
 }

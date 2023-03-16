@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 using MTGCapstone.API.Data.Configurations;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Tokens;
 
 namespace MTGCapstone.API.DbContexts
 {
@@ -30,6 +31,7 @@ namespace MTGCapstone.API.DbContexts
 
 
         public DbSet<BulkData> BulkData { get; set; } = null!;
+        public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
         public DbSet<Card> Cards { get; set; } = null!;
         public DbSet<CardFace> CardFaces { get; set; } = null!;
