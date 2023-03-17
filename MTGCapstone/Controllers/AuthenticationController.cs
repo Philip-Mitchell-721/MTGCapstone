@@ -32,7 +32,7 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<string>> Authenticate(
+        public async Task<ActionResult<TokenResponse>> Authenticate(
             AuthenticationRequestBody authenticationRequestBody)
         {
             if (!ModelState.IsValid || authenticationRequestBody.UserName is null || authenticationRequestBody.Password is null)
@@ -55,18 +55,7 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            User user = _mapper.Map<User>(userRegistrationModel);
-
-            IdentityResult result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
-            if (!result.Succeeded)
-            {
-                foreach (var error in result.Errors)
-                {
-                    ModelState.TryAddModelError(error.Code, error.Description);
-                }
-
-                return StatusCode(500, ModelState); 
-            }
+            
 
             return NoContent();
         }
@@ -74,19 +63,17 @@ namespace MTGCapstone.API.Controllers
         [HttpPost("refresh")]
         public async Task<ActionResult<TokenResponse>> Refresh(RefreshTokenDTO refresh)
         {
-            if (!ModelState.IsValid || String.IsNullOrWhiteSpace(refresh.Token) || String.IsNullOrWhiteSpace(refresh.RefreshToken))
+            if (!ModelState.IsValid 
+                || String.IsNullOrWhiteSpace(refresh.AccessToken) 
+                || String.IsNullOrWhiteSpace(refresh.RefreshToken))
                 return BadRequest(ModelState);
-            
-            // get tokenResponse from service
-            var tokenResponse = new TokenResponse(false, "", "", "");
-            //await _authService.RefreshToken(refresh);
+
+            TokenResponse tokenResponse = await _authService.RefreshTokensAsync(refresh.AccessToken, refresh.RefreshToken);
 
             if (!tokenResponse.Success)
-                return BadRequest(tokenResponse.Message);
-            if (tokenResponse.Token is null)
-                return StatusCode(500);
-            //Don't want refresh token to be part of access token. TODO: fix this
-            return Ok(tokenResponse.Token);
+                return Unauthorized(tokenResponse.Error);
+            
+            return Ok(tokenResponse);
         }
     }
 }

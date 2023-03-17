@@ -7,9 +7,8 @@
         public DateTime CreatedAt { get; set; }
         public DateTime ExpiredAt { get; set; }
         public int UserId { get; set; }
+        public string? JwtId { get; set; }
         public bool Used { get; set; }
         public bool Revoked { get; set; }
-
-        public bool IsExpired() => DateTime.UtcNow > ExpiredAt;
     }
 }
