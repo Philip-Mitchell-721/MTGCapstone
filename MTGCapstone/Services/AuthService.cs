@@ -1,5 +1,4 @@
 ﻿using Microsoft.AspNetCore.Identity;
-using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
@@ -11,28 +10,73 @@ using System.Text;
 
 namespace MTGCapstone.API.Services
 {
-    public class AuthService: IAuthService
+    public class AuthService : IAuthService
     {
         private readonly IConfiguration _configuration;
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly UserManager<User> _userManager;
-        private readonly TokenHandler _tokenHandler;
+        private readonly PasswordHasher<User> _passwordHasher;
+        private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
 
         public AuthService(IConfiguration configuration,
             CapstoneDbContext capstoneDbContext,
             UserManager<User> userManager,
-            TokenHandler tokenHandler)
+            PasswordHasher<User> passwordHasher,
+            JwtSecurityTokenHandler jwtSecurityTokenHandler)
         {
-            _configuration = configuration 
+            _configuration = configuration
                 ?? throw new ArgumentNullException(nameof(configuration));
-            _capstoneDbContext = capstoneDbContext 
+            _capstoneDbContext = capstoneDbContext
                 ?? throw new ArgumentNullException(nameof(capstoneDbContext));
-            _userManager = userManager 
+            _userManager = userManager
                 ?? throw new ArgumentNullException(nameof(userManager));
-            _tokenHandler = tokenHandler 
-                ?? throw new ArgumentNullException(nameof(tokenHandler));
+            _passwordHasher = passwordHasher
+                ?? throw new ArgumentNullException(nameof(passwordHasher));
+            _jwtSecurityTokenHandler = jwtSecurityTokenHandler 
+                ?? throw new ArgumentNullException(nameof(jwtSecurityTokenHandler));
         }
-        public string CreateAccessToken(User user)
+
+        public async Task<TokenResponse> Login(string userName, string password)
+        {
+            var user = await ValidateUserCredentialsAsync(userName, password);
+
+            if (user is null)
+                return new TokenResponse { Error = "Invalid User Credentials." };
+
+            var accessToken = CreateAccessToken(user);
+            var refreshToken = await CreateRefreshTokenAsync(user);
+
+            return new TokenResponse { AccessToken = accessToken, RefreshToken = refreshToken, Success = true };
+        }
+
+
+        public async Task<TokenResponse> RefreshToken(RefreshTokenDTO refresh)
+        {
+            
+            JwtSecurityToken token = _jwtSecurityTokenHandler.ReadJwtToken(refresh.Token);
+
+            if (token.ValidTo >= DateTime.UtcNow)
+                return new TokenResponse { Error = "Access Token hasn't expired yet" };
+
+            var oldRefreshToken = _capstoneDbContext.RefreshTokens
+                .FirstOrDefault(rf => rf.Token == refresh.Token);
+        }
+
+        private async Task<User?> ValidateUserCredentialsAsync(string userName, string password)
+        {
+            //_userManager.CheckPasswordAsync
+            var user = _capstoneDbContext.Users.FirstOrDefault(user =>
+               user.UserName == userName);
+
+            //Could also check the password this way?
+            //_passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
+
+            if (user == null || await _userManager.CheckPasswordAsync(user, password))
+                return null;
+
+            return user;
+        }
+        private string CreateAccessToken(User user)
         {
             //Create Key and Credentials
             var securityKey = new SymmetricSecurityKey(
@@ -58,49 +102,30 @@ namespace MTGCapstone.API.Services
                     notBefore: DateTime.UtcNow,
                     expires: DateTime.UtcNow.AddHours(1),
                     signingCredentials: signingCredentials
-                    
+
                 );
-            
+
 
             //Write the token
             var tokenToReturn = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
 
             return tokenToReturn;
         }
-
-        public async Task<User?> ValidateUserCredentialsAsync(string? userName, string? password)
+        private async Task<string> CreateRefreshTokenAsync(User user)
         {
-            //_userManager.CheckPasswordAsync
-            var user = _capstoneDbContext.Users.FirstOrDefault(user =>
-               user.UserName == userName);
-
-            //Could also check the password this way?
-            //_passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
-
-            if (user == null || await _userManager.CheckPasswordAsync(user, password))
-                return null;
-
-            return user;
-        }
-
-        public async Task<TokenResponse> RefreshAccessToken(RefreshTokenDTO refresh)
-        {
-            JwtSecurityTokenHandler handler = new JwtSecurityTokenHandler();
-            //TokenValidationParameters tokenValidationParameters = new TokenValidationParameters();
-            //ClaimsPrincipal principal = handler.ValidateToken(refresh.Token, tokenValidationParameters, out SecurityToken? validatedToken);
-            JwtSecurityToken token = handler.ReadJwtToken(refresh.Token);
             
-            if (token.ValidTo >= DateTime.UtcNow)
+            var refreshToken = new RefreshToken()
             {
-                return new TokenResponse(false, "Access Token hasn't expired yet", token);
-            }
-            var oldRefreshToken = _capstoneDbContext.RefreshTokens
-                .FirstOrDefault(rf => rf.Token == refresh.Token);
-        }
+                Token = _passwordHasher.HashPassword(user, Guid.NewGuid().ToString()),
+                CreatedAt = DateTime.UtcNow,
+                ExpiredAt = DateTime.UtcNow.AddDays(7),
+                UserId = user.Id,
+            };
 
-        public Task<TokenResponse> RefreshToken(RefreshTokenDTO refresh)
-        {
+            _capstoneDbContext.RefreshTokens.Add(refreshToken);
+            await _capstoneDbContext.SaveChangesAsync();
 
+            return refreshToken.Token;
         }
     }
 }

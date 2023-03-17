@@ -35,27 +35,16 @@ namespace MTGCapstone.API.Controllers
         public async Task<ActionResult<string>> Authenticate(
             AuthenticationRequestBody authenticationRequestBody)
         {
-            if (!ModelState.IsValid)
-                return Unauthorized();
+            if (!ModelState.IsValid || authenticationRequestBody.UserName is null || authenticationRequestBody.Password is null)
+                return BadRequest(ModelState);
 
-            TokenResponse tokenResponse = _authService.Login();
-            ////Validate the Username/password
-            //var user = await _authService.ValidateUserCredentialsAsync(
-            //    authenticationRequestBody.UserName,
-            //    authenticationRequestBody.Password);
-
-            //if (user is null) 
-            //    return Unauthorized();
-
-            ////Create Access Token
-            //var tokenToReturn = _authService.CreateAccessToken(user);
+            TokenResponse tokenResponse = await _authService.Login(authenticationRequestBody.UserName, authenticationRequestBody.Password);
 
             if (!tokenResponse.Success)
-            {
-                return Unauthorized();
-            }
+                return Unauthorized(tokenResponse.Error);
+            
 
-            return Ok(tokenToReturn);
+            return Ok(tokenResponse);
         }
 
         [HttpPost("register")]
@@ -66,9 +55,9 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            var user = _mapper.Map<User>(userRegistrationModel);
+            User user = _mapper.Map<User>(userRegistrationModel);
 
-            var result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
+            IdentityResult result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
             if (!result.Succeeded)
             {
                 foreach (var error in result.Errors)
@@ -89,7 +78,7 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(ModelState);
 
             // get tokenResponse from service
-            var tokenResponse = new TokenResponse(false, "", new AccessToken("", 0, new RefreshToken("", 0)));
+            var tokenResponse = new TokenResponse(false, "", "", "");
             //await _authService.RefreshToken(refresh);
 
             if (!tokenResponse.Success)

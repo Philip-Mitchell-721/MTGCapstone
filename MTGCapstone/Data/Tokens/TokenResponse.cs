@@ -2,16 +2,11 @@
 {
     public class TokenResponse
     {
-        public bool Success;
-        public string Message;
-        public string? Token;
+        public bool Success { get; set; } = false;
+        public string? Error { get; set; }
+        public string? AccessToken { get; set; }
         public string? RefreshToken { get; set; }
 
-        public TokenResponse(bool success, string message, string? token, string? refreshToken)
-        {
-            Success = success;
-            Message = message;
-            Token = token;
-        }
+
     }
 }

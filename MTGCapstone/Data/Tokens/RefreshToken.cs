@@ -2,22 +2,14 @@
 {
     public class RefreshToken
     {
-        public RefreshToken(string token, long expiration)
-        {
-            if (string.IsNullOrWhiteSpace(token))
-                throw new ArgumentException("Invalid token.");
-
-            if (expiration <= 0)
-                throw new ArgumentException("Invalid expiration.");
-
-            Token = token;
-            Expiration = expiration;
-        }
         public int Id { get; set; }
-        public string Token { get; protected set; }
-        public long Expiration { get; protected set; }
+        public string? Token { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime ExpiredAt { get; set; }
+        public int UserId { get; set; }
+        public bool Used { get; set; }
+        public bool Revoked { get; set; }
 
-        public bool IsExpired() => DateTime.UtcNow.Ticks > Expiration;
-
+        public bool IsExpired() => DateTime.UtcNow > ExpiredAt;
     }
 }

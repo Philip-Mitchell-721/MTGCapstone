@@ -32,7 +32,7 @@ namespace MTGCapstone.API.DbContexts
 
         public DbSet<BulkData> BulkData { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
-
+        //TODO: add-migration addingRefreshTokensToDb
         public DbSet<Card> Cards { get; set; } = null!;
         public DbSet<CardFace> CardFaces { get; set; } = null!;
         public DbSet<Category> Categories { get; set; } = null!;
