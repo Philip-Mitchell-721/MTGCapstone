@@ -17,12 +17,14 @@ namespace MTGCapstone.API.Services
         private readonly UserManager<User> _userManager;
         private readonly PasswordHasher<User> _passwordHasher;
         private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
+        private readonly RoleManager<IdentityRole<int>> _roleManager;
 
         public AuthService(IConfiguration configuration,
             CapstoneDbContext capstoneDbContext,
             UserManager<User> userManager,
             PasswordHasher<User> passwordHasher,
-            JwtSecurityTokenHandler jwtSecurityTokenHandler)
+            JwtSecurityTokenHandler jwtSecurityTokenHandler,
+            RoleManager<IdentityRole<int>> roleManager)
         {
             _configuration = configuration
                 ?? throw new ArgumentNullException(nameof(configuration));
@@ -34,23 +36,25 @@ namespace MTGCapstone.API.Services
                 ?? throw new ArgumentNullException(nameof(passwordHasher));
             _jwtSecurityTokenHandler = jwtSecurityTokenHandler 
                 ?? throw new ArgumentNullException(nameof(jwtSecurityTokenHandler));
+            _roleManager = roleManager 
+                ?? throw new ArgumentNullException(nameof(roleManager));
         }
 
-        public async Task<TokenResponse> Login(string userName, string password)
+        public async Task<TokenResponse> LoginAsync(string userName, string password)
         {
             var user = await ValidateUserCredentialsAsync(userName, password);
 
             if (user is null)
-                return new TokenResponse { Error = "Invalid User Credentials." };
+                return new TokenResponse { Error = "Invalid user credentials." };
 
-            var accessToken = CreateAccessToken(user);
+            var accessToken = await CreateAccessToken(user);
             var refreshToken = await CreateRefreshTokenAsync(user);
 
             return new TokenResponse { AccessToken = accessToken, RefreshToken = refreshToken, Success = true };
         }
 
 
-        public async Task<TokenResponse> RefreshToken(RefreshTokenDTO refresh)
+        public async Task<TokenResponse> RefreshTokenAsync(RefreshTokenDTO refresh)
         {
             
             JwtSecurityToken token = _jwtSecurityTokenHandler.ReadJwtToken(refresh.Token);
@@ -64,19 +68,16 @@ namespace MTGCapstone.API.Services
 
         private async Task<User?> ValidateUserCredentialsAsync(string userName, string password)
         {
-            //_userManager.CheckPasswordAsync
             var user = _capstoneDbContext.Users.FirstOrDefault(user =>
                user.UserName == userName);
 
-            //Could also check the password this way?
-            //_passwordHasher.VerifyHashedPassword(user, user.PasswordHash, password);
-
-            if (user == null || await _userManager.CheckPasswordAsync(user, password))
+            if (user == null || !await _userManager.CheckPasswordAsync(user, password))
                 return null;
 
             return user;
         }
-        private string CreateAccessToken(User user)
+
+        private async Task<string> CreateAccessToken(User user)
         {
             //Create Key and Credentials
             var securityKey = new SymmetricSecurityKey(
@@ -92,6 +93,31 @@ namespace MTGCapstone.API.Services
                 new Claim("sub", user.Id.ToString()),
                 new Claim("user_name", user.UserName)
             };
+            var userClaims = await _userManager.GetClaimsAsync(user);
+            claimsForToken.AddRange(userClaims);
+            
+            //Add roles to the claims
+            //ASK: Are the role claims and permissions not already in the list of user claims?
+            var userRoles = await _userManager.GetRolesAsync(user);
+            foreach (var userRole in userRoles)
+            {
+                claimsForToken.Add(new Claim(ClaimTypes.Role, userRole));
+                IdentityRole<int> role = await _roleManager.FindByNameAsync(userRole);
+                if (role == null)
+                {
+                    continue;
+                }
+                IList<Claim> roleClaims = await _roleManager.GetClaimsAsync(role);
+
+                foreach (Claim roleClaim in roleClaims)
+                {
+                    if (claimsForToken.Contains(roleClaim))
+                    {
+                        continue;
+                    }
+                    claimsForToken.Add(roleClaim);
+                }
+            }
 
             //Create the token
             var jwtSecurityToken = new JwtSecurityToken

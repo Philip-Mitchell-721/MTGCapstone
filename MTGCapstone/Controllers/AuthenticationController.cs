@@ -38,7 +38,7 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid || authenticationRequestBody.UserName is null || authenticationRequestBody.Password is null)
                 return BadRequest(ModelState);
 
-            TokenResponse tokenResponse = await _authService.Login(authenticationRequestBody.UserName, authenticationRequestBody.Password);
+            TokenResponse tokenResponse = await _authService.LoginAsync(authenticationRequestBody.UserName, authenticationRequestBody.Password);
 
             if (!tokenResponse.Success)
                 return Unauthorized(tokenResponse.Error);
@@ -76,7 +76,7 @@ namespace MTGCapstone.API.Controllers
         {
             if (!ModelState.IsValid || String.IsNullOrWhiteSpace(refresh.Token) || String.IsNullOrWhiteSpace(refresh.RefreshToken))
                 return BadRequest(ModelState);
-
+            
             // get tokenResponse from service
             var tokenResponse = new TokenResponse(false, "", "", "");
             //await _authService.RefreshToken(refresh);

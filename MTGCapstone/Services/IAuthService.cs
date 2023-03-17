@@ -8,8 +8,8 @@ namespace MTGCapstone.API.Services
     public interface IAuthService
     {
 
-        Task<TokenResponse> Login(string userName, string password);
-        Task<TokenResponse> RefreshToken(RefreshTokenDTO refresh);
+        Task<TokenResponse> LoginAsync(string userName, string password);
+        Task<TokenResponse> RefreshTokenAsync(string accessToken, string refreshToken);
         
 
     }
