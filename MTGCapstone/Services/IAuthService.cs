@@ -11,8 +11,6 @@ namespace MTGCapstone.API.Services
         Task<TokenResponse> LoginAsync(string userName, string password);
         Task<TokenResponse> RefreshTokensAsync(string accessToken, string refreshToken);
         Task<TokenResponse> RegisterUserAsync(UserRegistrationModel userRegistrationModel);
-
-
-
+        Task<TokenResponse> RevokeAsync(string refreshToken);
     }
 }

@@ -1,4 +1,5 @@
 ﻿using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using MTGCapstone.API.Data.DTOs;
@@ -55,9 +56,12 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            
+            var tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
+            if (!tokenResponse.Success)
+                return StatusCode(500, tokenResponse.Error);
+            //ASK: probably should not return the errors here, but unsure what TO return
 
-            return NoContent();
+            return Ok(tokenResponse);
         }
 
         [HttpPost("refresh")]
@@ -74,6 +78,24 @@ namespace MTGCapstone.API.Controllers
                 return Unauthorized(tokenResponse.Error);
             
             return Ok(tokenResponse);
+        }
+
+        [HttpPost("revoke")]
+        [Authorize(Roles = "administrator")]
+        public async Task<IActionResult> Revoke(string refreshToken)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+            {
+                //TODO: fix this to check modelstate once I have a DTO setup
+                return BadRequest();
+            }
+
+            var response = await _authService.RevokeAsync(refreshToken);
+
+            if (!response.Success)
+                return BadRequest(response.Error);
+
+            return NoContent();
         }
     }
 }

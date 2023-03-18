@@ -9,6 +9,7 @@ using MTGCapstone.API.Data.Tokens;
 using MTGCapstone.API.DbContexts;
 using NuGet.Packaging.Signing;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Mail;
 using System.Security.Claims;
 using System.Text;
 
@@ -43,21 +44,28 @@ namespace MTGCapstone.API.Services
 
         public async Task<TokenResponse> RegisterUserAsync(UserRegistrationModel userRegistrationModel)
         {
-            User user = _mapper.Map<User>(userRegistrationModel);
+           
+            //Check for existing user with username
+            var existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
+            if (existingUser is not null)
+                return new TokenResponse { Error = "User with this Username already exists" };
 
+            //Create new user
+            User user = _mapper.Map<User>(userRegistrationModel);
             IdentityResult result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
             if (!result.Succeeded)
             {
-                var tokenResponse = new TokenResponse();
-                var sb = new System.Text.StringBuilder();
+                var sb = new StringBuilder();
                 foreach (var error in result.Errors)
                 {
                     sb.AppendLine(error.ToString());
-                    //continue adding to the string.
                 }
-
-                return tokenResponse;
+                
+                return new TokenResponse { Error = sb.ToString() };
             }
+
+            //return tokens for the new user
+            return await CreateNewTokensAsync(user);
         }
         public async Task<TokenResponse> LoginAsync(string userName, string password)
         {
@@ -100,6 +108,41 @@ namespace MTGCapstone.API.Services
 
             return await CreateNewTokensAsync(user);
         }
+        public async Task<TokenResponse> RevokeAsync(string refreshToken)
+        {
+            var tokenToRevoke = _capstoneDbContext.RefreshTokens
+                .FirstOrDefault(rf => rf.Token == refreshToken);
+            if (tokenToRevoke is null)
+                return new TokenResponse { Error = "Invalid refresh token" };
+            //Could check to make sure that it's an otherwise valid refresh token, but this still works.
+
+            tokenToRevoke.Revoked = true;
+            await _capstoneDbContext.SaveChangesAsync();
+
+            return new TokenResponse { Success = true };
+        }
+
+        public async Task<TokenResponse> ChangePasswordAsync(string userName)
+        {
+            var user = await _userManager.FindByNameAsync(userName);
+            if (user == null)
+            {
+                return new TokenResponse { Error = "" };
+            }
+
+            string resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
+            string baseUrl = "https://localhost:7277"; //TODO: Make this changable with config.
+            string resetTokenUrl = $"{baseUrl}?email={user.Email}&token={resetToken}";
+            string emailBody = $"<a href=\"{resetTokenUrl}\" >Reset Password</a>";
+
+            var email = new MailMessage()
+                {
+                    Body = emailBody,
+                    Subject = _identitySetting.CurrentValue.PasswordResetSubject,
+                    Recipients = new List<string>() { user.Email }
+                };
+            await _mailer.SendEmailAsync(emailMessage);
+        }
 
         private async Task<User?> ValidateUserCredentialsAsync(string userName, string password)
         {
@@ -132,7 +175,7 @@ namespace MTGCapstone.API.Services
 
 
             //Write the accessToken
-            string accessToken = new JwtSecurityTokenHandler().WriteToken(jwtSecurityToken);
+            string accessToken = _jwtSecurityTokenHandler.WriteToken(jwtSecurityToken);
 
 
             string refreshToken = await CreateRefreshTokenAsync(user, jwtSecurityToken.Id);
@@ -206,5 +249,8 @@ namespace MTGCapstone.API.Services
 
             return refreshToken.Token;
         }
+
+
+
     }
 }
