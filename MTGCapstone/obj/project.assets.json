@@ -31,6 +31,30 @@
           "lib/netstandard2.1/AutoMapper.Extensions.Microsoft.DependencyInjection.dll": {}
         }
       },
+      "FluentEmail.Core/3.0.2": {
+        "type": "package",
+        "dependencies": {
+          "Microsoft.Extensions.DependencyInjection.Abstractions": "5.0.0"
+        },
+        "compile": {
+          "lib/netstandard2.0/FluentEmail.Core.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/FluentEmail.Core.dll": {}
+        }
+      },
+      "FluentEmail.Smtp/3.0.2": {
+        "type": "package",
+        "dependencies": {
+          "FluentEmail.Core": "3.0.2"
+        },
+        "compile": {
+          "lib/netstandard2.0/FluentEmail.Smtp.dll": {}
+        },
+        "runtime": {
+          "lib/netstandard2.0/FluentEmail.Smtp.dll": {}
+        }
+      },
       "Humanizer.Core/2.8.26": {
         "type": "package",
         "compile": {
@@ -3845,6 +3869,32 @@
         "automapper.extensions.microsoft.dependencyinjection.nuspec",
         "icon.png",
         "lib/netstandard2.1/AutoMapper.Extensions.Microsoft.DependencyInjection.dll"
+      ]
+    },
+    "FluentEmail.Core/3.0.2": {
+      "sha512": "uQFFbJgMhhCFUti7pfMi429fMNi7fLGMj+7uDtD7POlQzLxlhXJ6tmt4Y1SI51sZsA36GO5b7+o29eY/dKiICQ==",
+      "type": "package",
+      "path": "fluentemail.core/3.0.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fluentemail.core.3.0.2.nupkg.sha512",
+        "fluentemail.core.nuspec",
+        "fluentemail_logo_64x64.png",
+        "lib/netstandard2.0/FluentEmail.Core.dll"
+      ]
+    },
+    "FluentEmail.Smtp/3.0.2": {
+      "sha512": "Y5pZKS/mXSl7D5WJWecvfo1kpIMDc6U0VRU6wRbE9wEv2IqMH3cQXa/97Pwi+m31COepIqc6dMhGMtAJ2Qh7rw==",
+      "type": "package",
+      "path": "fluentemail.smtp/3.0.2",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "fluentemail.smtp.3.0.2.nupkg.sha512",
+        "fluentemail.smtp.nuspec",
+        "fluentemail_logo_64x64.png",
+        "lib/netstandard2.0/FluentEmail.Smtp.dll"
       ]
     },
     "Humanizer.Core/2.8.26": {
@@ -10893,6 +10943,7 @@
   "projectFileDependencyGroups": {
     "net6.0": [
       "AutoMapper.Extensions.Microsoft.DependencyInjection >= 12.0.0",
+      "FluentEmail.Smtp >= 3.0.2",
       "Microsoft.AspNetCore.Authentication.JwtBearer >= 6.0.12",
       "Microsoft.AspNetCore.Identity.EntityFrameworkCore >= 6.0.14",
       "Microsoft.AspNetCore.Mvc.NewtonsoftJson >= 6.0.11",
@@ -10954,6 +11005,10 @@
           "AutoMapper.Extensions.Microsoft.DependencyInjection": {
             "target": "Package",
             "version": "[12.0.0, )"
+          },
+          "FluentEmail.Smtp": {
+            "target": "Package",
+            "version": "[3.0.2, )"
           },
           "Microsoft.AspNetCore.Authentication.JwtBearer": {
             "target": "Package",

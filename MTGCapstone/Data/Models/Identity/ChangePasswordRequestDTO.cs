@@ -2,15 +2,9 @@
 
 namespace MTGCapstone.API.Data.Models.Identity
 {
-    public class AuthenticationRequestBody
+    public class ChangePasswordRequestDTO
     {
-
         [Required]
         public string UserName { get; set; } = null!;
-
-        [Required]
-        [DataType(DataType.Password)]
-        public string Password { get; set; } = null!;
-
     }
 }

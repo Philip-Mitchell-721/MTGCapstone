@@ -1,4 +1,6 @@
 ﻿using AutoMapper;
+using FluentEmail.Core;
+using FluentEmail.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -20,7 +22,6 @@ namespace MTGCapstone.API.Services
         private readonly IConfiguration _configuration;
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly UserManager<User> _userManager;
-        private readonly PasswordHasher<User> _passwordHasher;
         private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
         private readonly RoleManager<IdentityRole<int>> _roleManager;
         private readonly IMapper _mapper;
@@ -28,7 +29,6 @@ namespace MTGCapstone.API.Services
         public AuthService(IConfiguration configuration,
             CapstoneDbContext capstoneDbContext,
             UserManager<User> userManager,
-            PasswordHasher<User> passwordHasher,
             JwtSecurityTokenHandler jwtSecurityTokenHandler,
             RoleManager<IdentityRole<int>> roleManager,
             IMapper mapper)
@@ -36,7 +36,6 @@ namespace MTGCapstone.API.Services
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _capstoneDbContext = capstoneDbContext ?? throw new ArgumentNullException(nameof(capstoneDbContext));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
-            _passwordHasher = passwordHasher ?? throw new ArgumentNullException(nameof(passwordHasher));
             _jwtSecurityTokenHandler = jwtSecurityTokenHandler ?? throw new ArgumentNullException(nameof(jwtSecurityTokenHandler));
             _roleManager = roleManager ?? throw new ArgumentNullException(nameof(roleManager));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
@@ -67,9 +66,11 @@ namespace MTGCapstone.API.Services
             //return tokens for the new user
             return await CreateNewTokensAsync(user);
         }
-        public async Task<TokenResponse> LoginAsync(string userName, string password)
+        public async Task<TokenResponse> LoginAsync(AuthenticationRequestBody authenticationRequestBody)
         {
-            var user = await ValidateUserCredentialsAsync(userName, password);
+            var user = await ValidateUserCredentialsAsync(
+                authenticationRequestBody.UserName, 
+                authenticationRequestBody.Password);
 
             if (user is null)
                 return new TokenResponse { Error = "Invalid user credentials." };
@@ -77,16 +78,16 @@ namespace MTGCapstone.API.Services
             return await CreateNewTokensAsync(user);
         }
 
-        public async Task<TokenResponse> RefreshTokensAsync(string accessToken, string refreshToken)
+        public async Task<TokenResponse> RefreshTokensAsync(RefreshTokenDTO refreshTokenDTO)
         {
             //Validate Access Token Expiration
-            JwtSecurityToken token = _jwtSecurityTokenHandler.ReadJwtToken(accessToken);
+            JwtSecurityToken token = _jwtSecurityTokenHandler.ReadJwtToken(refreshTokenDTO.AccessToken);
             if (token.ValidTo >= DateTime.UtcNow)
                 return new TokenResponse { Error = "Access token hasn't expired yet" };
 
             //Validate Refresh Token
             var oldRefreshToken = _capstoneDbContext.RefreshTokens
-                .FirstOrDefault(rf => rf.Token == refreshToken);
+                .FirstOrDefault(rf => rf.Token == refreshTokenDTO.RefreshToken);
             if (oldRefreshToken is null)
                 return new TokenResponse { Error = "Invalid refresh token" };
             if (DateTime.UtcNow > oldRefreshToken.ExpiredAt)
@@ -108,10 +109,10 @@ namespace MTGCapstone.API.Services
 
             return await CreateNewTokensAsync(user);
         }
-        public async Task<TokenResponse> RevokeAsync(string refreshToken)
+        public async Task<TokenResponse> RevokeAsync(RefreshTokenToRevokeDTO refreshToken)
         {
             var tokenToRevoke = _capstoneDbContext.RefreshTokens
-                .FirstOrDefault(rf => rf.Token == refreshToken);
+                .FirstOrDefault(rf => rf.Token == refreshToken.RefreshToken);
             if (tokenToRevoke is null)
                 return new TokenResponse { Error = "Invalid refresh token" };
             //Could check to make sure that it's an otherwise valid refresh token, but this still works.
@@ -122,34 +123,63 @@ namespace MTGCapstone.API.Services
             return new TokenResponse { Success = true };
         }
 
-        public async Task<TokenResponse> ChangePasswordAsync(string userName)
+        public async Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName)
         {
-            var user = await _userManager.FindByNameAsync(userName);
+            var user = await _userManager.FindByNameAsync(userName.UserName);
             if (user == null)
-            {
-                return new TokenResponse { Error = "" };
-            }
-
+                return new TokenResponse { Error = "User not found" };
+            
             string resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-            string baseUrl = "https://localhost:7277"; //TODO: Make this changable with config.
+            //TODO: Make this changable with config.
+            //TODO: Change this to whatever url my front end needs to change password.
+            string baseUrl = "https://localhost:7277/api/authentication/change-password"; 
             string resetTokenUrl = $"{baseUrl}?email={user.Email}&token={resetToken}";
             string emailBody = $"<a href=\"{resetTokenUrl}\" >Reset Password</a>";
 
-            var email = new MailMessage()
+            //TODO: local host is for testing.  Change this to your email server.
+            var sender = new SmtpSender(() => new SmtpClient("localhost") 
+            {
+                EnableSsl = false, //For testing
+                DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory,
+                PickupDirectoryLocation = @"C:\Users\Philip\Documents\EmailTest"
+            });
+
+            Email.DefaultSender = sender;
+            //TODO: still need to add fluentemail to DI container.
+
+            var email = await Email
+                .From("noreply@MTGCapstone.com")
+                .To(user.Email, user.UserName)
+                .Subject("CapstoneMTG Password Reset")
+                .Body(emailBody, true)
+                .SendAsync();
+
+            if (!email.Successful)
+            {
+                var sb = new StringBuilder();
+                foreach (var error in email.ErrorMessages)
                 {
-                    Body = emailBody,
-                    Subject = _identitySetting.CurrentValue.PasswordResetSubject,
-                    Recipients = new List<string>() { user.Email }
-                };
-            await _mailer.SendEmailAsync(emailMessage);
+                    sb.AppendLine(error.ToString());
+                }
+
+                return new TokenResponse { Error = sb.ToString() };
+            }
+            
+            //only returning this right now for testing.  probably only return success=true.
+            return new TokenResponse { Success = true, AccessToken = emailBody };
         }
 
         private async Task<User?> ValidateUserCredentialsAsync(string userName, string password)
         {
-            var user = _capstoneDbContext.Users.FirstOrDefault(user =>
-               user.UserName == userName);
+            var user = await _userManager.FindByNameAsync(userName);
 
-            if (user == null || !await _userManager.CheckPasswordAsync(user, password))
+            if (user == null)
+            {
+                //_logger.log()
+                return null;
+            }
+
+            if (!await _userManager.CheckPasswordAsync(user, password))
                 return null;
 
             return user;
@@ -168,9 +198,8 @@ namespace MTGCapstone.API.Services
                     audience: _configuration["Authentication:Audience"],
                     claims: claimsForToken,
                     notBefore: DateTime.UtcNow,
-                    expires: DateTime.UtcNow.AddHours(1),
+                    expires: DateTime.UtcNow.AddSeconds(7200),
                     signingCredentials: signingCredentials
-
                 );
 
 
@@ -234,10 +263,10 @@ namespace MTGCapstone.API.Services
 
         private async Task<string> CreateRefreshTokenAsync(User user, string jwtId)
         {
-            
+            var passwordHasher = new PasswordHasher<User>();
             var refreshToken = new RefreshToken()
             {
-                Token = _passwordHasher.HashPassword(user, Guid.NewGuid().ToString()),
+                Token = passwordHasher.HashPassword(user, Guid.NewGuid().ToString()),
                 CreatedAt = DateTime.UtcNow,
                 ExpiredAt = DateTime.UtcNow.AddDays(7),
                 UserId = user.Id,

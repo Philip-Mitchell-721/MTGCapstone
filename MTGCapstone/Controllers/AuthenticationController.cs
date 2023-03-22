@@ -13,6 +13,7 @@ namespace MTGCapstone.API.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
+    [AllowAnonymous]
     public class AuthenticationController : ControllerBase
     {
         private readonly IAuthService _authService;
@@ -34,12 +35,12 @@ namespace MTGCapstone.API.Controllers
 
         [HttpPost("login")]
         public async Task<ActionResult<TokenResponse>> Authenticate(
-            AuthenticationRequestBody authenticationRequestBody)
+            [FromBody] AuthenticationRequestBody authenticationRequestBody)
         {
-            if (!ModelState.IsValid || authenticationRequestBody.UserName is null || authenticationRequestBody.Password is null)
+            if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            TokenResponse tokenResponse = await _authService.LoginAsync(authenticationRequestBody.UserName, authenticationRequestBody.Password);
+            TokenResponse tokenResponse = await _authService.LoginAsync(authenticationRequestBody);
 
             if (!tokenResponse.Success)
                 return Unauthorized(tokenResponse.Error);
@@ -65,14 +66,12 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("refresh")]
-        public async Task<ActionResult<TokenResponse>> Refresh(RefreshTokenDTO refresh)
+        public async Task<ActionResult<TokenResponse>> Refresh(RefreshTokenDTO refreshTokenDTO)
         {
-            if (!ModelState.IsValid 
-                || String.IsNullOrWhiteSpace(refresh.AccessToken) 
-                || String.IsNullOrWhiteSpace(refresh.RefreshToken))
+            if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            TokenResponse tokenResponse = await _authService.RefreshTokensAsync(refresh.AccessToken, refresh.RefreshToken);
+            TokenResponse tokenResponse = await _authService.RefreshTokensAsync(refreshTokenDTO);
 
             if (!tokenResponse.Success)
                 return Unauthorized(tokenResponse.Error);
@@ -82,9 +81,9 @@ namespace MTGCapstone.API.Controllers
 
         [HttpPost("revoke")]
         [Authorize(Roles = "administrator")]
-        public async Task<IActionResult> Revoke(string refreshToken)
+        public async Task<IActionResult> Revoke(RefreshTokenToRevokeDTO refreshToken)
         {
-            if (string.IsNullOrWhiteSpace(refreshToken))
+            if (!ModelState.IsValid)
             {
                 //TODO: fix this to check modelstate once I have a DTO setup
                 return BadRequest();
@@ -97,5 +96,26 @@ namespace MTGCapstone.API.Controllers
 
             return NoContent();
         }
+
+        [HttpPost("change-password-request")]
+        public async Task<IActionResult> ChangePasswordRequest(ChangePasswordRequestDTO userName) //TODO: make DTO with errormessage in annotation
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var response = await _authService.ChangePasswordRequestAsync(userName);
+
+            if (!response.Success)
+                return BadRequest(response.Error);
+
+            return Ok(response.AccessToken);
+        }
+
+        [HttpPost("change-password")]
+        public async Task<IActionResult> ChangePassword(string changeEmailToken, string email, string newPassword, string confirmedNewPassword)
+        {
+            return Ok(); 
+        }
+
     }
 }

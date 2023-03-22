@@ -28,6 +28,11 @@ builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddTransient<IPropertyMappingService, PropertyMappingService>();
 
+//builder.Services
+//        .AddFluentEmail("fromemail@test.test")
+//        //.AddRazorRenderer()
+//        .AddSmtpSender("localhost", 25);
+
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>

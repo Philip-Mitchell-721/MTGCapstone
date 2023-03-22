@@ -1,11 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "WujTP6TP+rvANT3qir5IzZBqFHjGun7pFdKf6KTKMjPHrFrhnsgv3dMNqK+IVtQTzsUkgAeZ1eRZuQzWUMZNag==",
+  "dgSpecHash": "AbQlEFm5l5hcxcwBVnJFEN4LaigyaTgJBW4ObASnCBiOVA5gOJl+ocw6F1MLKnUYlLEugk0EbcqfdZ6Aoy6yTg==",
   "success": true,
   "projectFilePath": "C:\\Users\\Philip\\Documents\\GitHub\\MTGCapstone\\MTGCapstone\\MTGCapstone.API.csproj",
   "expectedPackageFiles": [
     "C:\\Users\\Philip\\.nuget\\packages\\automapper\\12.0.0\\automapper.12.0.0.nupkg.sha512",
     "C:\\Users\\Philip\\.nuget\\packages\\automapper.extensions.microsoft.dependencyinjection\\12.0.0\\automapper.extensions.microsoft.dependencyinjection.12.0.0.nupkg.sha512",
+    "C:\\Users\\Philip\\.nuget\\packages\\fluentemail.core\\3.0.2\\fluentemail.core.3.0.2.nupkg.sha512",
+    "C:\\Users\\Philip\\.nuget\\packages\\fluentemail.smtp\\3.0.2\\fluentemail.smtp.3.0.2.nupkg.sha512",
     "C:\\Users\\Philip\\.nuget\\packages\\humanizer.core\\2.8.26\\humanizer.core.2.8.26.nupkg.sha512",
     "C:\\Users\\Philip\\.nuget\\packages\\messagepack\\2.1.152\\messagepack.2.1.152.nupkg.sha512",
     "C:\\Users\\Philip\\.nuget\\packages\\messagepack.annotations\\2.1.152\\messagepack.annotations.2.1.152.nupkg.sha512",
