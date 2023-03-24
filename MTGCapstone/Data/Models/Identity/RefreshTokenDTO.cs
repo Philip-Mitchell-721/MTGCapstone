@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace MTGCapstone.API.Data.DTOs
+namespace MTGCapstone.API.Data.Models.Identity
 {
     public class RefreshTokenDTO
     {

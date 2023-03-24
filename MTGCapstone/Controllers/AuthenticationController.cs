@@ -2,11 +2,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
 using MTGCapstone.API.Data.Tokens;
-using MTGCapstone.API.DbContexts;
 using IAuthService = MTGCapstone.API.Services.IAuthService;
 
 namespace MTGCapstone.API.Controllers
@@ -17,20 +15,12 @@ namespace MTGCapstone.API.Controllers
     public class AuthenticationController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly UserManager<User> _userManager;
-        private readonly IMapper _mapper;
+        
 
-        public AuthenticationController(IAuthService authService,
-            UserManager<User> userManager,
-            IMapper mapper)
+        public AuthenticationController(IAuthService authService)
         {
             _authService = authService 
                 ?? throw new ArgumentNullException(nameof(authService));
-            _userManager = userManager 
-                ?? throw new ArgumentNullException(nameof(userManager));
-            _mapper = mapper 
-                ?? throw new ArgumentNullException(nameof(mapper));
-            
         }
 
         [HttpPost("login")]
@@ -59,9 +49,8 @@ namespace MTGCapstone.API.Controllers
 
             var tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
             if (!tokenResponse.Success)
-                return StatusCode(500, tokenResponse.Error);
-            //ASK: probably should not return the errors here, but unsure what TO return
-
+                return StatusCode(500);
+            //TODO: Consider if registering should log user in or prompt them to confirm email.
             return Ok(tokenResponse);
         }
 
@@ -98,7 +87,7 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("change-password-request")]
-        public async Task<IActionResult> ChangePasswordRequest(ChangePasswordRequestDTO userName) //TODO: make DTO with errormessage in annotation
+        public async Task<IActionResult> ChangePasswordRequest(ChangePasswordRequestDTO userName)
         {
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
@@ -110,6 +99,8 @@ namespace MTGCapstone.API.Controllers
 
             return Ok(response.AccessToken);
         }
+
+
 
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword(string changeEmailToken, string email, string newPassword, string confirmedNewPassword)

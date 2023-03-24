@@ -162,20 +162,25 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("{deckId}/Cards")]
-        public async Task<IActionResult> AddCardToDeck(int deckId, int cardId)
+        public async Task<IActionResult> AddCardToDeck(int deckId, [FromBody] int cardId)
         {
             //TODO: Add authorization to edit this deck.
+            //TODO: Create Response<T> that service will return.  
+            //TODO: move DeckExistsAsync and CardExistsAsync into AddCardToDeckAsync. 
+            //if (!await _deckService.DeckExistsAsync(deckId))
+            //    return NotFound($"No deck found with Id:{deckId}.");
 
-            if (cardId == 0)
-                return BadRequest("No cardId in request.");
-
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
-
-            if (!await _deckService.CardExistsAsync(cardId))
-                return NotFound($"No card found with Id:{cardId}.");
+            //if (!await _deckService.CardExistsAsync(cardId))
+            //    return NotFound($"No card found with Id:{cardId}.");
 
             var deckCard = await _deckService.AddCardToDeckAsync(deckId, cardId);
+
+            //var response = await _deckService.AddCardToDeckAsync(deckId, cardId);
+            //return response.status switch
+            //{
+
+            //}
+
 
             return CreatedAtRoute("GetDeckCardById", new { deckId = deckCard.DeckId, deckCardId = deckCard.Id }, deckCard);
         }
@@ -349,11 +354,7 @@ namespace MTGCapstone.API.Controllers
             if (likingUserIdString is null || int.TryParse(likingUserIdString, out var likingUserId))
                 return BadRequest();
 
-            //ASK: How do I know when the UI will have access to IDs?
-            //It makes the difference for my service search
-            //on whether I use Find(byId) or FirstOrDefault(byCondition)
-            //Leaving this here to confirm, but UI will send bearer token on every request,
-            //which has the userId(string) as one of the claims.
+            
 
             await _deckService.UnLikeDeckAsync(deckId, likingUserId);
 
