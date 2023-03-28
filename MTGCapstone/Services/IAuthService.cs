@@ -11,9 +11,9 @@ namespace MTGCapstone.API.Services
         Task<TokenResponse> LoginAsync(AuthenticationRequestBody authenticationRequestBody);
         Task<TokenResponse> RefreshTokensAsync(RefreshTokenDTO refreshTokenDTO);
         Task<TokenResponse> RevokeAsync(RefreshTokenToRevokeDTO refreshToken);
-        Task<TokenResponse> ConfirmEmailRequestAsync(User user);
-        Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName);
+        Task<TokenResponse> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO);
         Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO);
-        Task<TokenResponse> NewPasswordAsync(ResetPasswordDTO resetPasswordDTO);
+        Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName);
+        Task<TokenResponse> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO);
     }
 }

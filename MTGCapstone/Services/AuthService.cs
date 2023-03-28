@@ -3,7 +3,8 @@ using FluentEmail.Core;
 using FluentEmail.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.IdentityModel.JsonWebTokens;
+//using Microsoft.IdentityModel.JsonWebTokens;  
+//ASK: Is there a reason to use this over System.IdentityModel.Tokens.Jwt?
 using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
@@ -14,6 +15,7 @@ using NuGet.Packaging.Signing;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Mail;
 using System.Security.Claims;
+using System.Security.Policy;
 using System.Text;
 
 namespace MTGCapstone.API.Services
@@ -23,7 +25,7 @@ namespace MTGCapstone.API.Services
         private readonly IConfiguration _configuration;
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly UserManager<User> _userManager;
-        private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler;
+        private readonly JwtSecurityTokenHandler _jwtSecurityTokenHandler = new JwtSecurityTokenHandler();
         private readonly RoleManager<IdentityRole<int>> _roleManager;
         private readonly IMapper _mapper;
         private readonly ILogger<AuthService> _logger;
@@ -31,7 +33,7 @@ namespace MTGCapstone.API.Services
         public AuthService(IConfiguration configuration,
             CapstoneDbContext capstoneDbContext,
             UserManager<User> userManager,
-            JwtSecurityTokenHandler jwtSecurityTokenHandler,
+            //JwtSecurityTokenHandler jwtSecurityTokenHandler,
             RoleManager<IdentityRole<int>> roleManager,
             IMapper mapper,
             ILogger<AuthService> logger)
@@ -39,19 +41,24 @@ namespace MTGCapstone.API.Services
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _capstoneDbContext = capstoneDbContext ?? throw new ArgumentNullException(nameof(capstoneDbContext));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
-            _jwtSecurityTokenHandler = jwtSecurityTokenHandler ?? throw new ArgumentNullException(nameof(jwtSecurityTokenHandler));
+            //_jwtSecurityTokenHandler = jwtSecurityTokenHandler ?? throw new ArgumentNullException(nameof(jwtSecurityTokenHandler));
             _roleManager = roleManager ?? throw new ArgumentNullException(nameof(roleManager));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
+
+        //TODO: Need to add logging to Errors.
         public async Task<TokenResponse> RegisterUserAsync(UserRegistrationModel userRegistrationModel)
         {
             //TODO: Register sends email confirmation with token that will redirect to landing page logged in.
             //Check for existing user with username
             var existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
             if (existingUser is not null)
+            {
+                _logger.LogInformation($"Username {existingUser.UserName} already exists");
                 return new TokenResponse { Error = "User with this Username already exists" };
+            }
 
             //Create new user
             User user = _mapper.Map<User>(userRegistrationModel);
@@ -61,7 +68,7 @@ namespace MTGCapstone.API.Services
                 return new TokenResponse { Error = result.Error() };
             }
 
-            var response = await ConfirmEmailRequestAsync(user);
+            var response = await ConfirmEmailRequestAsync(new ConfirmEmailRequestDTO { UserName = user.UserName});
             if (!response.Success)
             {
                 return response;
@@ -122,14 +129,34 @@ namespace MTGCapstone.API.Services
 
             return new TokenResponse { Success = true };
         }
-        public async Task<TokenResponse> ConfirmEmailRequestAsync(User user)
+        public async Task<TokenResponse> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO)
         {
+            var user = await _userManager.FindByNameAsync(confirmEmailRequestDTO.UserName);
+            if (user == null)
+                return new TokenResponse { Error = "User not found" };
+
             var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
-            var response = await SendTokenInEmailAsync(token, user);
+            string callbackUrl = "https://localhost:7277/authentication/confirm-email";
+
+            var response = await SendTokenInEmailAsync(token, user, callbackUrl);
             if (!response.Success)
             {
                 return response;
             }
+            return new TokenResponse { Success = true };
+        }
+        public async Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
+        {
+            var user = await _userManager.FindByEmailAsync(confirmEmailDTO.Email);
+            if (user == null)
+                return new TokenResponse { Error = "User not found" };
+
+            
+            var result = await _userManager.ConfirmEmailAsync(user, confirmEmailDTO.token);
+
+            if (!result.Succeeded)
+                return new TokenResponse { Error = result.Error() };
+
             return new TokenResponse { Success = true };
         }
         public async Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName)
@@ -139,7 +166,9 @@ namespace MTGCapstone.API.Services
                 return new TokenResponse { Error = "User not found" };
             
             string resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var response = await SendTokenInEmailAsync(resetToken, user);
+            string callbackUrl = "https://localhost:7277/authentication/change-password";
+
+            var response = await SendTokenInEmailAsync(resetToken, user, callbackUrl);
             if (!response.Success)
             {
                 return response;
@@ -147,38 +176,26 @@ namespace MTGCapstone.API.Services
             return new TokenResponse { Success = true };
 
         }
-        public async Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
+        public async Task<TokenResponse> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO)
         {
-            var user = await _userManager.FindByEmailAsync(confirmEmailDTO.Email);
+            var user = await _userManager.FindByEmailAsync(changePasswordDTO.Email);
             if (user == null)
                 return new TokenResponse { Error = "User not found" };
 
-            var result = await _userManager.ConfirmEmailAsync(user, confirmEmailDTO.token);
+            var result = await _userManager.ResetPasswordAsync(user, changePasswordDTO.token, changePasswordDTO.Password);
 
             if (!result.Succeeded)
                 return new TokenResponse { Error = result.Error() };
 
             return new TokenResponse { Success = true };
         }
-        public async Task<TokenResponse> NewPasswordAsync(ResetPasswordDTO resetPasswordDTO)
-        {
-            var user = await _userManager.FindByEmailAsync(resetPasswordDTO.Email);
-            if (user == null)
-                return new TokenResponse { Error = "User not found" };
 
-            var result = await _userManager.ResetPasswordAsync(user, resetPasswordDTO.token, resetPasswordDTO.Password);
 
-            if (!result.Succeeded)
-                return new TokenResponse { Error = result.Error() };
-
-            return new TokenResponse { Success = true };
-        }
-        private async Task<TokenResponse> SendTokenInEmailAsync(string token, User user)
+        private async Task<TokenResponse> SendTokenInEmailAsync(string token, User user, string callbackUrl)
         {
             //TODO: Make this changable with config.
             //TODO: IMPORTANT Change this to whatever url my front end needs to change password.
-            string baseUrl = "https://localhost:7277/api/authentication/change-password";
-            string resetTokenUrl = $"{baseUrl}?email={user.Email}&token={token}";
+            string resetTokenUrl = $"{callbackUrl}?email={user.Email}&token={token}";
             string emailBody = $"<a href=\"{resetTokenUrl}\" >Reset Password</a>";
 
             //TODO: local host is for testing.  Change this to your email server.
@@ -253,8 +270,8 @@ namespace MTGCapstone.API.Services
             //Make the claims
             var claimsForToken = new List<Claim>
             {
-                new Claim("sub", user.Id.ToString()),
-                new Claim("jti", Guid.NewGuid().ToString())
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
             var userClaims = await _userManager.GetClaimsAsync(user);
             claimsForToken.AddRange(userClaims);

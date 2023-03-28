@@ -2,7 +2,7 @@
 
 namespace MTGCapstone.API.Data.Models.Identity
 {
-    public class ResetPasswordDTO
+    public class ChangePasswordDTO
     {
         [Required(ErrorMessage = "Email is required")]
         [EmailAddress]

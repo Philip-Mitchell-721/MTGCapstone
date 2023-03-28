@@ -86,6 +86,36 @@ namespace MTGCapstone.API.Controllers
             return NoContent();
         }
 
+        [HttpPost("confirm-email-request")]
+        public async Task<IActionResult> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO userName)
+        {
+
+            var id = User.Claims.FirstOrDefault(c => c.Type == "sub");
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var response = await _authService.ConfirmEmailRequestAsync(userName);
+
+            if (!response.Success)
+                return BadRequest(response.Error);
+
+            return Ok();
+        }
+
+        [HttpPost("confirm-email")]
+        public async Task<IActionResult> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
+        {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var response = await _authService.ConfirmEmailAsync(confirmEmailDTO);
+
+            if (!response.Success)
+                return BadRequest(response.Error);
+
+            return Ok();
+        }
+
         [HttpPost("change-password-request")]
         public async Task<IActionResult> ChangePasswordRequest(ChangePasswordRequestDTO userName)
         {
@@ -96,15 +126,22 @@ namespace MTGCapstone.API.Controllers
 
             if (!response.Success)
                 return BadRequest(response.Error);
-
+            //This is just to see the changePasswordEmailToken
+            //remove this and return Ok()
             return Ok(response.AccessToken);
         }
 
-
-
         [HttpPost("change-password")]
-        public async Task<IActionResult> ChangePassword(string changeEmailToken, string email, string newPassword, string confirmedNewPassword)
+        public async Task<IActionResult> ChangePassword(ChangePasswordDTO changePasswordDTO)
         {
+            if (!ModelState.IsValid)
+                return BadRequest(ModelState);
+
+            var response = await _authService.ChangePasswordAsync(changePasswordDTO);
+
+            if (!response.Success)
+                return BadRequest(response.Error);
+
             return Ok(); 
         }
 
