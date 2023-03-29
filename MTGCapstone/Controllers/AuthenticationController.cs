@@ -50,6 +50,7 @@ namespace MTGCapstone.API.Controllers
             var tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
             if (!tokenResponse.Success)
                 return StatusCode(500);
+
             //TODO: Consider if registering should log user in or prompt them to confirm email.
             return Ok(tokenResponse);
         }

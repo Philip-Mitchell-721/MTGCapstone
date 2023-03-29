@@ -53,6 +53,7 @@ namespace MTGCapstone.API.Services
         {
             //TODO: Register sends email confirmation with token that will redirect to landing page logged in.
             //Check for existing user with username
+            //TODO: add check for user by email
             var existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
             if (existingUser is not null)
             {
@@ -90,29 +91,46 @@ namespace MTGCapstone.API.Services
             //Validate Access Token Expiration
             JwtSecurityToken token = _jwtSecurityTokenHandler.ReadJwtToken(refreshTokenDTO.AccessToken);
             if (token.ValidTo >= DateTime.UtcNow)
+            {
                 return new TokenResponse { Error = "Access token hasn't expired yet" };
+
+            }
 
             //Validate Refresh Token
             var oldRefreshToken = _capstoneDbContext.RefreshTokens
                 .FirstOrDefault(rf => rf.Token == refreshTokenDTO.RefreshToken);
+
             if (oldRefreshToken is null)
+            {
                 return new TokenResponse { Error = "Invalid refresh token" };
+            }
             if (DateTime.UtcNow > oldRefreshToken.ExpiredAt)
+            {
                 return new TokenResponse { Error = "Expired refresh token" };
+            }
             if (oldRefreshToken.JwtId != token.Id)
+            {
                 return new TokenResponse { Error = "Tokens don't match" };
+            }
             if (oldRefreshToken.Used)
+            {
                 return new TokenResponse { Error = "Previously used refresh token" };
+            }
             if (oldRefreshToken.Revoked)
+            {
                 return new TokenResponse { Error = "Revoked refresh token" };
-            
+            }
+            var user = await _capstoneDbContext.Users.FindAsync(oldRefreshToken.UserId);
+            if (user is null)
+            {
+                return new TokenResponse { Error = "User not found" };
+            }
+
+            //TODO: ADD ALL THE BRACKETS (╯°□°)╯︵ ┻━┻
             //Update old Refresh Token
             oldRefreshToken.Used = true;
             await _capstoneDbContext.SaveChangesAsync();
 
-            var user = await _capstoneDbContext.Users.FindAsync(oldRefreshToken.UserId);
-            if (user is null)
-                return new TokenResponse { Error = "User not found" };
 
             return await CreateNewTokensAsync(user);
         }
@@ -207,7 +225,6 @@ namespace MTGCapstone.API.Services
             });
 
             Email.DefaultSender = sender;
-            //TODO: still need to add fluentemail to DI container.
 
             var email = await Email
                 .From("noreply@MTGCapstone.com")

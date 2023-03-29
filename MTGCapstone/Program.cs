@@ -1,9 +1,11 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Build.Framework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MTGCapstone.API.Authorization;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Services;
@@ -27,6 +29,8 @@ builder.Services.AddScoped<ICardService, CardService>();
 builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddTransient<IPropertyMappingService, PropertyMappingService>();
+
+
 
 //builder.Services
 //        .AddFluentEmail("fromemail@test.test")
@@ -72,13 +76,13 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("YourDeck", policy =>
+    options.AddPolicy("IsOwnerAsync", policy =>
     {
-        policy.RequireAuthenticatedUser();
-        //policy.RequireClaim("sub", deckId );
-        //TODO:ASK: Figure out how to compare "Sub" claim to the userId on the deck in the request.
+        policy.AddRequirements(new IsOwnerRequirement());
     });
 });
+
+builder.Services.AddSingleton<IAuthorizationHandler, IsOwnerAuthorizationHandler>();
 
 
 var app = builder.Build();

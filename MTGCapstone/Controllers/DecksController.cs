@@ -4,8 +4,10 @@ using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.ViewModels;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace MTGCapstone.API.Controllers
@@ -17,13 +19,18 @@ namespace MTGCapstone.API.Controllers
     {
         private readonly IDeckService _deckService;
         private readonly ILogger<DecksController> _logger;
+        private readonly IAuthorizationService _authorizationService;
 
-        public DecksController(IDeckService deckService, ILogger<DecksController> logger, IMapper mapper)
+        public DecksController(IDeckService deckService, 
+            ILogger<DecksController> logger,
+            IAuthorizationService authorizationService)
         {
             _deckService = deckService
                 ?? throw new ArgumentNullException(nameof(deckService));
             _logger = logger
                 ?? throw new ArgumentNullException(nameof(logger));
+            _authorizationService = authorizationService 
+                ?? throw new ArgumentNullException(nameof(authorizationService));
         }
 
         //Decks
@@ -75,15 +82,21 @@ namespace MTGCapstone.API.Controllers
         [HttpPut("{deckId}")]
         public async Task<IActionResult> UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO)
         {
-            //TODO: Add authorization to edit this deck.
-            if (deckForUpdateDTO is null)
-                return BadRequest("DeckForUpdateDTO is null.");
-
+            
             if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
+                return BadRequest(ModelState);
 
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+            var response = await _deckService.IsOwnerAsync(User, deckId);
+            if (!response.Success)
+            {
+                if (!response.IsOwner)
+                {
+                    return Unauthorized();
+                }
+                return BadRequest(response.Errors);
+                //Consider if it's worth separating all of these unsuccessful
+                //responses into different return results
+            }
 
             await _deckService.UpdateDeck(deckId, deckForUpdateDTO);
 

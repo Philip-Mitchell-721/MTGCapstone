@@ -1,6 +1,8 @@
 ﻿using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.ViewModels;
+using System.Security.Claims;
 
 namespace MTGCapstone.API.Services.DomainServiceInterfaces
 {
@@ -14,6 +16,7 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
         Task UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO);
         Task DeleteDeck(int deckId);
         Task<bool> DeckExistsAsync(int id);
+        Task<IsOwnerResponse> IsOwnerAsync(ClaimsPrincipal claimsPrincipal, int deckId);
 
 
     //DeckCards

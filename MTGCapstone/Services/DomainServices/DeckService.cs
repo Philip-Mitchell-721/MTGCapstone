@@ -2,10 +2,13 @@
 using Microsoft.EntityFrameworkCore;
 using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.ViewModels;
 using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
+using System.IdentityModel.Tokens.Jwt;
 using System.Reflection;
+using System.Security.Claims;
 
 namespace MTGCapstone.API.Services.DomainServices
 {
@@ -133,6 +136,31 @@ namespace MTGCapstone.API.Services.DomainServices
         {
             return await _capstoneDbContext.Decks.AnyAsync(d => d.Id == id);
         }
+
+        public async Task<IsOwnerResponse> IsOwnerAsync(ClaimsPrincipal claimsPrincipal, int deckId)
+        {
+            var userId = claimsPrincipal.FindFirstValue(JwtRegisteredClaimNames.Sub);
+            if (userId is null)
+            {
+                return new IsOwnerResponse { Errors = new List<string> { "Invalid access token" } };
+            }
+            
+
+            var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
+
+            if (deck is null)
+            {
+                return new IsOwnerResponse { DeckExists = false, Errors = new List<string> { "Deck not found" } };
+            }
+            if (deck.Id.ToString() != userId)
+            {
+                return new IsOwnerResponse { IsOwner = false, Errors = new List<string> { "Not owner of deck" } };
+            }
+
+            return new IsOwnerResponse { Success = true };
+        }
+
+
 
     //DeckCards
         public async Task<List<DeckCard>> GetDeckCardsForDeck(int deckId)
