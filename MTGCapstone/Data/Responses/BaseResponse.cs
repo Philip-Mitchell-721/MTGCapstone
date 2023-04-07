@@ -2,7 +2,7 @@
 {
     public class BaseResponse : IResponse
     {
-        public bool Success { get; set; } = false;
+        public bool Success { get; set; }
         public List<string> Errors { get; set; } = new List<string>();
 
     }

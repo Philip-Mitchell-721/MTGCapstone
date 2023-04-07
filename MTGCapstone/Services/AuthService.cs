@@ -275,6 +275,13 @@ namespace MTGCapstone.API.Services
 
 
             //Write the accessToken
+            //ASK: When would I want to new up a SecurityTokenDescriptor, THEN
+            //use the handler to create the JWT.  Also, why are there so many variations of
+            //createToken methods on the handler?
+            //_jwtSecurityTokenHandler.CreateEncodedJwt
+            //_jwtSecurityTokenHandler.CreateJwtSecurityToken
+            //_jwtSecurityTokenHandler.CreateSecurityTokenReference
+            //_jwtSecurityTokenHandler.CreateToken
             string accessToken = _jwtSecurityTokenHandler.WriteToken(jwtSecurityToken);
 
 

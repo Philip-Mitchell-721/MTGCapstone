@@ -12,11 +12,9 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
         Task<List<DeckVM>?> GetDecksAsync(DeckSearchFilterParameters deckSearchFilterParameters);
         Task<DeckForUpdateDTO?> GetDeckForUpdateDTOAsync(int id);
         Task<DeckVM?> GetDeckVMAsync(int id);
-        Task<DeckVM> CreateDeckAsync(DeckDTOForCreation deckDTOForCreation);
-        Task UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO);
-        Task DeleteDeck(int deckId);
-        Task<bool> DeckExistsAsync(int id);
-        Task<IsOwnerResponse> IsOwnerAsync(ClaimsPrincipal claimsPrincipal, int deckId);
+        Task<DeckVM> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation);
+        Task<DeckResponse> UpdateDeck(int userId, int deckId, DeckForUpdateDTO deckForUpdateDTO);
+        Task<DeckResponse> DeleteDeck(int userId, int deckId);
 
 
     //DeckCards

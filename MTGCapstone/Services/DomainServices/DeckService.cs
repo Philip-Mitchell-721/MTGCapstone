@@ -5,9 +5,9 @@ using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.ViewModels;
 using MTGCapstone.API.DbContexts;
+using MTGCapstone.API.Extentions.LoggerMessages;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
 using System.IdentityModel.Tokens.Jwt;
-using System.Reflection;
 using System.Security.Claims;
 
 namespace MTGCapstone.API.Services.DomainServices
@@ -16,14 +16,15 @@ namespace MTGCapstone.API.Services.DomainServices
     {
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly IMapper _mapper;
+        private readonly ILogger<DeckService> _logger;
 
         public DeckService(CapstoneDbContext capstoneDbContext,
-            IMapper mapper)
+            IMapper mapper,
+            ILogger<DeckService> logger)
         {
-            _capstoneDbContext = capstoneDbContext
-                ?? throw new ArgumentNullException(nameof(capstoneDbContext));
-            _mapper = mapper
-                ?? throw new ArgumentNullException(nameof(mapper));
+            _capstoneDbContext = capstoneDbContext ?? throw new ArgumentNullException(nameof(capstoneDbContext));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
 
@@ -80,84 +81,102 @@ namespace MTGCapstone.API.Services.DomainServices
             return _mapper.Map<List<DeckVM>>(collectionToReturn);
 
         }
-        private async Task<Deck?> GetDeckAsync(int id)
+        public async Task<DeckForUpdateDTO?> GetDeckForUpdateDTOAsync(int deckId)
         {
-            var deck = await _capstoneDbContext.Decks.FindAsync(id);
-
-            return deck;
-        }
-        public async Task<DeckForUpdateDTO?> GetDeckForUpdateDTOAsync(int id)
-        {
-            var deck = await GetDeckAsync(id);
+            //Continue: Figure out how to validate the deck before mapping it to DeckForUpdateDTO.
+            //Then figure out the controller method for this.
+            var response = DeckValidationAsync(null, deckId);
+            var deck = await GetDeckAsync(deckId);
             var deckForUpdateDTO = _mapper.Map<DeckForUpdateDTO>(deck);
             return deckForUpdateDTO;
         }
         public async Task<DeckVM?> GetDeckVMAsync(int id)
         {
             var deck = await GetDeckAsync(id);
+
             var deckVM = _mapper.Map<DeckVM>(deck);
             return deckVM;
         }
-        public async Task<DeckVM> CreateDeckAsync(DeckDTOForCreation deckDTOForCreation)
+        public async Task<DeckVM> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation)
         {
+            //Testing out the MappingGenerator
+            //Deck deck = deckDTOForCreation.MapToDeck();
             Deck deck = _mapper.Map<Deck>(deckDTOForCreation);
+            deck.UserId = userId;
             deck.CreatedAt = DateTime.UtcNow;
 
             _capstoneDbContext.Decks.Add(deck);
-
             await _capstoneDbContext.SaveChangesAsync();
 
             return _mapper.Map<DeckVM>(deck);
         }
-        public async Task UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO)
+        public async Task<DeckResponse> UpdateDeck(int userId, int deckId, DeckForUpdateDTO deckForUpdateDTO)
         {
-            var deckToUpdate = await _capstoneDbContext.Decks.FindAsync(deckId);
-            if (deckToUpdate is not null)
+
+            //CONTINUE: implement DeckValidationAsync in all places
+            var response = await DeckValidationAsync(userId, deckId);
+            if (!response.Success)
             {
-                _mapper.Map(deckForUpdateDTO, deckToUpdate);
-
-                deckToUpdate.LastEditedAt = DateTime.UtcNow;
-
-                await _capstoneDbContext.SaveChangesAsync();
-
+                return response;
             }
+            Deck deckToUpdate = response.Deck!;
+            //TODO: Check that this doesn't wipe away props
+            //in the deckToUpdate that aren't present in the deckForUpdateDTO.
+            _mapper.Map(deckForUpdateDTO, deckToUpdate);
 
+            deckToUpdate.LastEditedAt = DateTime.UtcNow;
+
+            await _capstoneDbContext.SaveChangesAsync();
+            return response;
         }
-        public async Task DeleteDeck(int deckId)
+        public async Task<DeckResponse> DeleteDeck(int userId, int deckId)
         {
-            var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
-            if (deck is not null)
+            var response = await DeckValidationAsync(userId, deckId);
+            if (!response.Success)
             {
-                _capstoneDbContext.Decks.Remove(deck);
-                await _capstoneDbContext.SaveChangesAsync();
+                return response;
             }
-        }
-        public async Task<bool> DeckExistsAsync(int id)
-        {
-            return await _capstoneDbContext.Decks.AnyAsync(d => d.Id == id);
-        }
-
-        public async Task<IsOwnerResponse> IsOwnerAsync(ClaimsPrincipal claimsPrincipal, int deckId)
-        {
-            var userId = claimsPrincipal.FindFirstValue(JwtRegisteredClaimNames.Sub);
-            if (userId is null)
-            {
-                return new IsOwnerResponse { Errors = new List<string> { "Invalid access token" } };
-            }
+            Deck deck = response.Deck!;
             
-
+            _capstoneDbContext.Decks.Remove(deck);
+            await _capstoneDbContext.SaveChangesAsync();
+            //ASK: Is there ever a need to return the deleted deck?
+            response.Deck = null;
+            return response;
+        }
+        private async Task<Deck?> GetDeckAsync(int deckId)
+        {
             var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
-
+            return deck;
+        }
+        private async Task<DeckResponse> DeckExistsAsync(int deckId)
+        {
+            var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
             if (deck is null)
             {
-                return new IsOwnerResponse { DeckExists = false, Errors = new List<string> { "Deck not found" } };
+                return new DeckResponse();
             }
-            if (deck.Id.ToString() != userId)
+            return new DeckResponse { Deck = deck, DeckExists = true };
+        }
+        private async Task<DeckResponse> DeckValidationAsync(int? userId, int deckId)
+        {
+            DeckResponse response = new();
+            var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
+            if (deck is null)
             {
-                return new IsOwnerResponse { IsOwner = false, Errors = new List<string> { "Not owner of deck" } };
+                return response;
             }
-
-            return new IsOwnerResponse { Success = true };
+            response.DeckExists = true;
+            if (deck.Id != userId)
+            {
+                //ASK: Check this out (definition in extentions folder)
+                _logger.LogNotOwner(userId, deck.Id);
+                return response;
+            }
+            response.IsOwner = true;
+            response.Deck = deck;
+            response.Success = true;
+            return response;
         }
 
 

@@ -8,6 +8,7 @@ using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Authorization;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.DbContexts;
+using MTGCapstone.API.Middleware;
 using MTGCapstone.API.Services;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
 using MTGCapstone.API.Services.DomainServices;
@@ -61,6 +62,7 @@ builder.Services.AddHttpClient<ScryfallClient>()
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
+        options.SaveToken = true;
         options.TokenValidationParameters = new()
         {
             ValidateIssuer = true,
@@ -76,7 +78,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("IsOwnerAsync", policy =>
+    options.AddPolicy("DeckValidationAsync", policy =>
     {
         policy.AddRequirements(new IsOwnerRequirement());
     });
@@ -99,6 +101,8 @@ app.UseHttpsRedirection();
 app.UseRouting();
 
 app.UseAuthentication();
+
+app.UseMiddleware<LoggingUserScope>();
 
 app.UseAuthorization();
 
