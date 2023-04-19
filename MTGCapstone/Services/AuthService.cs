@@ -3,8 +3,6 @@ using FluentEmail.Core;
 using FluentEmail.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-//using Microsoft.IdentityModel.JsonWebTokens;  
-//ASK: Is there a reason to use this over System.IdentityModel.Tokens.Jwt?
 using Microsoft.IdentityModel.Tokens;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
@@ -33,7 +31,6 @@ namespace MTGCapstone.API.Services
         public AuthService(IConfiguration configuration,
             CapstoneDbContext capstoneDbContext,
             UserManager<User> userManager,
-            //JwtSecurityTokenHandler jwtSecurityTokenHandler,
             RoleManager<IdentityRole<int>> roleManager,
             IMapper mapper,
             ILogger<AuthService> logger)
@@ -41,7 +38,6 @@ namespace MTGCapstone.API.Services
             _configuration = configuration ?? throw new ArgumentNullException(nameof(configuration));
             _capstoneDbContext = capstoneDbContext ?? throw new ArgumentNullException(nameof(capstoneDbContext));
             _userManager = userManager ?? throw new ArgumentNullException(nameof(userManager));
-            //_jwtSecurityTokenHandler = jwtSecurityTokenHandler ?? throw new ArgumentNullException(nameof(jwtSecurityTokenHandler));
             _roleManager = roleManager ?? throw new ArgumentNullException(nameof(roleManager));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -275,13 +271,6 @@ namespace MTGCapstone.API.Services
 
 
             //Write the accessToken
-            //ASK: When would I want to new up a SecurityTokenDescriptor, THEN
-            //use the handler to create the JWT.  Also, why are there so many variations of
-            //createToken methods on the handler?
-            //_jwtSecurityTokenHandler.CreateEncodedJwt
-            //_jwtSecurityTokenHandler.CreateJwtSecurityToken
-            //_jwtSecurityTokenHandler.CreateSecurityTokenReference
-            //_jwtSecurityTokenHandler.CreateToken
             string accessToken = _jwtSecurityTokenHandler.WriteToken(jwtSecurityToken);
 
 

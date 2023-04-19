@@ -6,7 +6,6 @@ namespace MTGCapstone.API.Data.Models
     {
         public int Id { get; set; }
         public int UserId { get; set; }
-
         public string? Name { get; set; } 
         public bool IsPrivate { get; set; }
         public string? Format { get; set; }

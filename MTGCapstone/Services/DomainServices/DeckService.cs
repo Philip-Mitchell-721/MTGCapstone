@@ -8,6 +8,7 @@ using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Extentions.LoggerMessages;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net;
 using System.Security.Claims;
 
 namespace MTGCapstone.API.Services.DomainServices
@@ -25,25 +26,34 @@ namespace MTGCapstone.API.Services.DomainServices
             _capstoneDbContext = capstoneDbContext ?? throw new ArgumentNullException(nameof(capstoneDbContext));
             _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _ = _capstoneDbContext.ColorIdentityLookUps.ToList();
+            _ = _capstoneDbContext.ColorsLookUps.ToList();
+            _ = _capstoneDbContext.FinishesLookUps.ToList();
+            _ = _capstoneDbContext.ColorIdentityLookUps.ToList();
         }
 
 
     //Decks
-        public async Task<List<DeckVM>?> GetDecksAsync(DeckSearchFilterParameters deckSearchFilterParameters)
+        public async Task<Response<List<DeckVM>?>> GetDecksAsync(GetDecksRequest getDecksRequest)
         {
             IQueryable<Deck> collection = _capstoneDbContext.Decks;
 
-            if (deckSearchFilterParameters.UserId is not 0)
+            if (getDecksRequest.UserName is not null)
             {
-                collection = collection.Where(deck => deck.UserId == deckSearchFilterParameters.UserId);
+                var user = await _capstoneDbContext.Users.FirstOrDefaultAsync(u => u.UserName ==  getDecksRequest.UserName);
+                if (user is not null)
+                {
+                    var userId = user.Id;
+                    collection = collection.Where(deck => deck.UserId == userId);
+                }
             }
 
-            if (deckSearchFilterParameters.Format is not null)
+            if (getDecksRequest.Format is not null)
             {
-                collection = collection.Where(deck => deck.Format == deckSearchFilterParameters.Format);
+                collection = collection.Where(deck => deck.Format == getDecksRequest.Format);
             }
 
-            if (deckSearchFilterParameters.Commander is not null)
+            if (getDecksRequest.Commander is not null)
             {
 
                 collection = collection.Where(deck => deck.DeckCategories
@@ -51,44 +61,53 @@ namespace MTGCapstone.API.Services.DomainServices
                                                                     .Any(dcdc => dcdc.DeckCard != null
                                                                                 && dcdc.DeckCard.Card != null
                                                                                 && dcdc.DeckCard.Card.Name != null
-                                                                                && dcdc.DeckCard.Card.Name.ToLower() == deckSearchFilterParameters.Commander.ToLower())));
+                                                                                && dcdc.DeckCard.Card.Name.ToLower() == getDecksRequest.Commander.ToLower())));
 
             }
 
-            deckSearchFilterParameters.OrderBy ??= "Views";
-            if (deckSearchFilterParameters.OrderBy != "Views")
+            getDecksRequest.OrderBy ??= "Views";
+            if (getDecksRequest.OrderBy != "Views")
             {
                 DeckVM deckVM = new();
-                var orderByInfo = deckVM.GetType().GetProperty(deckSearchFilterParameters.OrderBy);
+                var orderByInfo = deckVM.GetType().GetProperty(getDecksRequest.OrderBy);
                 if (orderByInfo is not null)
                 {
 
-                    deckSearchFilterParameters.OrderBy = orderByInfo.Name;
+                    getDecksRequest.OrderBy = orderByInfo.Name;
                 }
                 else
                 {
-                    deckSearchFilterParameters.OrderBy = "Views";
+                    getDecksRequest.OrderBy = "Views";
                 }
             }
 
-            collection = collection.OrderBy(deck => deck.GetType().GetProperty(deckSearchFilterParameters.OrderBy));
+                .OrderBy(deck => deck.GetType().GetProperty(getDecksRequest.OrderBy));
 
 
-            var collectionToReturn = await collection.Skip(deckSearchFilterParameters.PageSize * (deckSearchFilterParameters.PageNumber - 1))
-                .Take(deckSearchFilterParameters.PageSize)
+            var collectionToReturn = await collection.Skip(getDecksRequest.PageSize * (getDecksRequest.PageNumber - 1))
+                .Take(getDecksRequest.PageSize)
                 .ToListAsync();
 
             return _mapper.Map<List<DeckVM>>(collectionToReturn);
 
         }
-        public async Task<DeckForUpdateDTO?> GetDeckForUpdateDTOAsync(int deckId)
+        public async Task<DeckForUpdateResponse> GetDeckForUpdateDTOAsync(int userId, int deckId)
         {
-            //Continue: Figure out how to validate the deck before mapping it to DeckForUpdateDTO.
-            //Then figure out the controller method for this.
-            var response = DeckValidationAsync(null, deckId);
-            var deck = await GetDeckAsync(deckId);
-            var deckForUpdateDTO = _mapper.Map<DeckForUpdateDTO>(deck);
-            return deckForUpdateDTO;
+            var response = await GetDeckForOwnerAsync(userId, deckId);
+            DeckForUpdateResponse updateResponse = new();
+            if (!response.DeckExists)
+            {
+                return updateResponse;
+            }
+            updateResponse.DeckExists = true;
+            if (!response.IsOwner)
+            {
+                return updateResponse;
+            }
+            updateResponse.IsOwner = true;
+            updateResponse.Success = true;
+            updateResponse.DeckForUpdate = _mapper.Map<DeckForUpdateDTO>(response.Deck);
+            return updateResponse;
         }
         public async Task<DeckVM?> GetDeckVMAsync(int id)
         {
@@ -97,7 +116,7 @@ namespace MTGCapstone.API.Services.DomainServices
             var deckVM = _mapper.Map<DeckVM>(deck);
             return deckVM;
         }
-        public async Task<DeckVM> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation)
+        public async Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation)
         {
             //Testing out the MappingGenerator
             //Deck deck = deckDTOForCreation.MapToDeck();
@@ -107,14 +126,14 @@ namespace MTGCapstone.API.Services.DomainServices
 
             _capstoneDbContext.Decks.Add(deck);
             await _capstoneDbContext.SaveChangesAsync();
-
-            return _mapper.Map<DeckVM>(deck);
+            
+            return new Response<DeckVM> { Value = _mapper.Map<DeckVM>(deck) };
         }
         public async Task<DeckResponse> UpdateDeck(int userId, int deckId, DeckForUpdateDTO deckForUpdateDTO)
         {
-
-            //CONTINUE: implement DeckValidationAsync in all places
-            var response = await DeckValidationAsync(userId, deckId);
+            //TODO Do the IsOwnerCHeck here, not in the GetDeckAsync
+            //CONTINUE: implement GetDeckForOwnerAsync in all places
+            var response = await GetDeckAsync(deckId);
             if (!response.Success)
             {
                 return response;
@@ -129,63 +148,105 @@ namespace MTGCapstone.API.Services.DomainServices
             await _capstoneDbContext.SaveChangesAsync();
             return response;
         }
-        public async Task<DeckResponse> DeleteDeck(int userId, int deckId)
+        public async Task<Response<Deck>> DeleteDeck(int userId, int deckId)
         {
-            var response = await DeckValidationAsync(userId, deckId);
+            var response = await GetDeckAsync(deckId);
             if (!response.Success)
             {
                 return response;
             }
-            Deck deck = response.Deck!;
             
-            _capstoneDbContext.Decks.Remove(deck);
+            _capstoneDbContext.Decks.Remove(response.Value);
             await _capstoneDbContext.SaveChangesAsync();
-            //ASK: Is there ever a need to return the deleted deck?
-            response.Deck = null;
+            
             return response;
         }
-        private async Task<Deck?> GetDeckAsync(int deckId)
+        private async Task<Response<Deck>> GetDeckAsync(int deckId)
         {
-            var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
-            return deck;
+            var response = new Response<Deck>();
+            response.Value = await _capstoneDbContext.Decks.FindAsync(deckId);
+            if (response.Value == null)
+            {
+                response.StatusCode = 404;
+                return response;
+            }
+            return response;
         }
-        private async Task<DeckResponse> DeckExistsAsync(int deckId)
+        public async Task<bool> DeckExistsAsync(int deckId)
         {
             var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
             if (deck is null)
             {
-                return new DeckResponse();
+                return false;
             }
-            return new DeckResponse { Deck = deck, DeckExists = true };
+            return true;
         }
-        private async Task<DeckResponse> DeckValidationAsync(int? userId, int deckId)
+
+        public async Task<Response<Deck>> GetValidEditableDeck(int userId, int deckId)
         {
-            DeckResponse response = new();
-            var deck = await _capstoneDbContext.Decks.FindAsync(deckId);
-            if (deck is null)
+            Response<Deck> response = new();
+            response.Value = await _capstoneDbContext.Decks.FindAsync(deckId);
+            if (response.Value is null)
             {
+                response.StatusCode = 404;
                 return response;
             }
-            response.DeckExists = true;
-            if (deck.Id != userId)
+            if (response.Value.Id != userId)
             {
-                //ASK: Check this out (definition in extentions folder)
-                _logger.LogNotOwner(userId, deck.Id);
+                response.StatusCode = 401;
                 return response;
             }
-            response.IsOwner = true;
-            response.Deck = deck;
             response.Success = true;
+            
             return response;
+            //TODO: Make changes in Controller.  Add switch to check statusCodes.
         }
-
-
 
     //DeckCards
-        public async Task<List<DeckCard>> GetDeckCardsForDeck(int deckId)
+        public async Task<List<Card>> GetCardsForDeck(int deckId)
         {
-            var deckCards = await _capstoneDbContext.DeckCards.Where(dc => dc.DeckId == deckId).ToListAsync();
-            return deckCards;
+
+            var deckCardsThroughDeck = await _capstoneDbContext.Decks
+                .Include(d => d.DeckCards)//.ThenInclude(dc => dc.Card)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card.ImageUris)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card.ColorIdentity)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
+                ////.Include(d => d.DeckCards).ThenInclude()
+                .FirstOrDefaultAsync(d =>  d.Id == deckId);
+
+            var cardIds = deckCardsThroughDeck.DeckCards.Select(dc => dc.CardId);
+            var cards = _capstoneDbContext.Cards
+                .Include(card => card.ImageUris)
+                .Include(card => card.ColorIdentity)
+                .Where(c => cardIds.Contains(c.Id)).ToList();
+
+            cards.First().ColorIdentity.Select(ci => ci.ColorIdentityLookUp.Value).ToList();
+            if (deckCardsThroughDeck is null)
+            {
+                return new List<Card>();
+            }
+            var cards = new List<Card>();
+
+            foreach (var deckCard in deckCardsThroughDeck.DeckCards)
+            {
+                cards.Add(deckCard.Card);
+            }
+            //ASK: I need help with this.  Before learning about relationships, a Deck would have a List<Card> as a property.
+            
+            
+            var deckCards = await _capstoneDbContext.DeckCards.Include(dc => dc.Card)
+                .Where(dc => dc.DeckId == deckId).ToListAsync();
+            var cards2 = deckCards.fo
+
+
+
+            return cards;
         }
         public async Task<DeckCard?> GetDeckCardByIdAsync(int deckCardId)
         {
@@ -196,18 +257,14 @@ namespace MTGCapstone.API.Services.DomainServices
         public async Task<DeckCard> AddCardToDeckAsync(int deckId, int cardId)
         {
 
-            var deckCardToAdd = new DeckCard();
-
-            //ASK: (disclaimer: tired thoughts.  Do I need to check if 0 here, since I already did that check on the Controller?
-            if (cardId is not 0 && deckId is not 0)
+            var deckCardToAdd = new DeckCard
             {
-                deckCardToAdd.CardId = cardId;
-                deckCardToAdd.DeckId = deckId;
+                CardId = cardId,
+                DeckId = deckId
+            };
 
-
-                _capstoneDbContext.DeckCards.Add(deckCardToAdd);
-                await _capstoneDbContext.SaveChangesAsync();
-            }
+            _capstoneDbContext.DeckCards.Add(deckCardToAdd);
+            await _capstoneDbContext.SaveChangesAsync();
 
             return deckCardToAdd;
         }

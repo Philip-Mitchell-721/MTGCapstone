@@ -20,18 +20,14 @@ namespace MTGCapstone.API.Controllers
     {
         private readonly IDeckService _deckService;
         private readonly ILogger<DecksController> _logger;
-        private readonly IAuthorizationService _authorizationService;
 
         public DecksController(IDeckService deckService, 
-            ILogger<DecksController> logger,
-            IAuthorizationService authorizationService)
+            ILogger<DecksController> logger)
         {
             _deckService = deckService
                 ?? throw new ArgumentNullException(nameof(deckService));
             _logger = logger
                 ?? throw new ArgumentNullException(nameof(logger));
-            _authorizationService = authorizationService 
-                ?? throw new ArgumentNullException(nameof(authorizationService));
         }
 
         //Decks
@@ -39,9 +35,9 @@ namespace MTGCapstone.API.Controllers
         //TODO: Add Authentication to Create Deck.
         //TODO: Add Authorization checks for manipulating decks.
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DeckVM>>> GetDecks(DeckSearchFilterParameters deckSearchFilterParameters)
+        public async Task<ActionResult<IEnumerable<DeckVM>>> GetDecks(GetDecksRequest getDecksRequest)
         {
-            var deckVMs = await _deckService.GetDecksAsync(deckSearchFilterParameters);
+            var deckVMs = await _deckService.GetDecksAsync(getDecksRequest);
 
             return Ok(deckVMs);
         }
@@ -49,6 +45,7 @@ namespace MTGCapstone.API.Controllers
         [HttpGet("{deckId}", Name = "GetDeckById")]
         public async Task<ActionResult<DeckVM>> GetDeck(int deckId)
         {
+
             var deckVM = await _deckService.GetDeckVMAsync(deckId);
 
             if (deckVM == null)
@@ -67,9 +64,9 @@ namespace MTGCapstone.API.Controllers
 
             }
 
-            var deckVM = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
-
-            return CreatedAtRoute("GetDeckById", new { id = deckVM.Id }, deckVM);
+            var response = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
+            //TODO: Add deckId to deckViewModel
+            return CreatedAtRoute("GetDeckById", new { id = response.Value.Id }, response.Value);
         }
 
         [HttpPut("{deckId}")]
@@ -78,71 +75,60 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
-
             }
 
-            var response = await _deckService.UpdateDeck(User.Id(), deckId, deckForUpdateDTO);
+            DeckResponse response = await _deckService.UpdateDeck(User.Id(), deckId, deckForUpdateDTO);
 
-            if (!response.Success)
+            if (!response.DeckExists)
             {
-                if (!response.IsOwner)
-                {
-                    return Forbid();
-                }
                 return NotFound();
             }
-                //Consider if it's worth separating all of these unsuccessful
-                //responses into different return results
-
-
+            if (!response.IsOwner)
+            {
+                return Forbid();
+            }
+            
             return NoContent();
         }
 
         [HttpPatch("{deckId}")]
         public async Task<IActionResult> PatchDeck(int deckId, [FromBody] JsonPatchDocument<DeckForUpdateDTO> patchDoc)
         {
-            //ASK: Is there a way to apply the patchdoc in my service and check the modelstate?
+            var updateResponse = await _deckService.GetDeckForUpdateDTOAsync(User.Id(), deckId);
 
-            if (patchDoc is null)
-                return BadRequest("PatchDoc from client was null");
-
-            var deckForUpdateDTO = await _deckService.GetDeckForUpdateDTOAsync(deckId);
-
-            if (deckForUpdateDTO is null)
-                return NotFound($"No deck found with Id:{deckId}.");
-
-            patchDoc.ApplyTo(deckForUpdateDTO, ModelState);
-
-            if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
-
-            var response = await _deckService.UpdateDeck(User.Id(), deckId, deckForUpdateDTO);
-
-            //TODO: redundancy here, fix this.
-            if (!response.Success)
+            if (!updateResponse.DeckExists || updateResponse.DeckForUpdate is null)
             {
-                if (!response.IsOwner)
-                {
-                    return Forbid();
-                }
                 return NotFound();
             }
+            if (!updateResponse.IsOwner)
+            {
+                return Forbid();
+            }
+            patchDoc.ApplyTo(updateResponse.DeckForUpdate, ModelState);
+            //The TryValidateModel will check the passed in model.
+            //If invalid, it will add the errors to the ModelState.
+            if (!ModelState.IsValid && !TryValidateModel(updateResponse.DeckForUpdate))
+            {
+                return BadRequest(ModelState);
+            }
+           
 
+            await _deckService.UpdateDeck(User.Id(), deckId, updateResponse.DeckForUpdate!);
             return NoContent();
         }
 
         [HttpDelete("{deckId}")]
         public async Task<IActionResult> DeleteDeck(int deckId)
         {
-            var response = await _deckService.DeleteDeck(User.Id(), deckId);
+            IResponse response = await _deckService.DeleteDeck(User.Id(), deckId);
 
-            if (!response.Success)
+            if (!response.DeckExists)
             {
-                if (!response.IsOwner)
-                {
-                    return Forbid();
-                }
                 return NotFound();
+            }
+            if (!response.IsOwner)
+            {
+                return Forbid();
             }
 
             return NoContent();
@@ -156,7 +142,7 @@ namespace MTGCapstone.API.Controllers
         //My service method will take CardId and return the proper info.
 
         [HttpGet("{deckId}/Cards")]
-        public async Task<ActionResult<List<DeckCard>?>> GetCardsForDeck(int deckId)
+        public async Task<ActionResult<List<Card>?>> GetCardsForDeck(int deckId)
         {
             if (deckId is 0)
                 return BadRequest("No deckId sent in request.");
@@ -164,7 +150,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"Deck with id {deckId} not found in Database.");
 
-            var deckCards = await _deckService.GetDeckCardsForDeck(deckId);
+            var deckCards = await _deckService.GetCardsForDeck(deckId);
 
             return Ok(deckCards);
 
@@ -347,23 +333,12 @@ namespace MTGCapstone.API.Controllers
         [HttpPut("{deckId}/Likes")]
         public async Task<IActionResult> LikeDeckAsync(int deckId)
         {
-            //TODO: Make sure user is Authenticated.  Add Authentication attribute.
-
-
-
             if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+                return NotFound();
 
-            var likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (likingUserIdString is null || int.TryParse(likingUserIdString, out var likingUserId))
-                return BadRequest();
-            
-
-            var like = await _deckService.LikeDeckAsync(deckId, likingUserId);
+            var like = await _deckService.LikeDeckAsync(deckId, User.Id());
 
             return NoContent();
-
         }
 
         [HttpDelete("{deckId}/Likes")]

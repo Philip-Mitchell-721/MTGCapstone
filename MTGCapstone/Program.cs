@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Build.Framework;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -31,7 +32,8 @@ builder.Services.AddScoped<IDeckService, DeckService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddTransient<IPropertyMappingService, PropertyMappingService>();
 
-
+//This is if you want to add additional ModelState Validation and/or return a 422 UnprocessableEntity instead of 400.
+//builder.Services.Configure<ApiBehaviorOptions>(options => options.SuppressModelStateInvalidFilter = true);
 
 //builder.Services
 //        .AddFluentEmail("fromemail@test.test")
@@ -48,6 +50,7 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(opt =>
 {
     opt.User.RequireUniqueEmail = true;
 })
+//.AddRoles<IdentityRole>() //ASK: Is this line needed? TODO: Look this up.
 .AddEntityFrameworkStores<CapstoneDbContext>();
 
 
@@ -78,7 +81,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization(options =>
 {
-    options.AddPolicy("DeckValidationAsync", policy =>
+    options.AddPolicy("GetDeckForOwnerAsync", policy =>
     {
         policy.AddRequirements(new IsOwnerRequirement());
     });

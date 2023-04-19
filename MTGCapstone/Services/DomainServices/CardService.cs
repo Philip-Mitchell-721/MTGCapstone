@@ -60,18 +60,15 @@ namespace MTGCapstone.API.Services
                 }
             }
 
-            //Was trying to use this for orderBy
-            //card.GetType().GetProperty(cardResourceParameters.OrderBy)
-
             collection = collection.Where(c => c.Language == cardResourceParameters.Language
                     && c.EdhrecRank != 0);
 
             //ASK:TODO: No idea why the F this won't work...
-            //var collectionToReturn = collection
-            //    .GroupBy(c => c.OracleId)
-            //    .Select(c => c.First());
+            var collectionToReturn = collection
+                .GroupBy(c => c.OracleId)
+                .Select(c => c.First())
+                .OrderBy(c => c.EdhrecRank);
 
-            collection = collection.OrderBy(c => c.EdhrecRank);
 
             //var collectionToReturn = collection
             //    .GroupBy(c => c.OracleId)
