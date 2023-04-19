@@ -41,7 +41,7 @@ namespace MTGCapstone.API.Services
             {
                 var response = await _scryfallClient.Client
                     .GetAsync("https://api.scryfall.com/bulk-data", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
-
+                
                 using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
 
                 if (response.IsSuccessStatusCode)

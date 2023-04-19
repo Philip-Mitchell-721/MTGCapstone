@@ -3,20 +3,13 @@ using System.Net.Sockets;
 
 namespace MTGCapstone.API.Data.Models
 {
-    public class User //: IdentityUser
+    public class User : IdentityUser<int>
     {
-        public User(string userName, string password, string emailAddress)
-        {
-            UserName = userName;
-            Password = password;
-            EmailAddress = emailAddress;
-        }
-        //TODO: Migrate/Update database.  UserName, Password, and EmailAddress now required
 
-        public int Id { get; set; }
-        public string UserName { get; set; }
-        public string Password { get; set; }
-        public string EmailAddress { get; set; }
+        //TODO: Migrate/Update database.  IdentityUser added.
+        //public string? Id { get; set; }
+        //public string? UserName { get; set; }
+        //public string? Email { get; set; }
         public string? Bio { get; set; }
         public List<Like> Likes { get; set; } = new List<Like>();
         public List<Comment> Comments { get; set; } = new List<Comment>();
@@ -30,4 +23,5 @@ namespace MTGCapstone.API.Data.Models
         public PreferredMarketLookup? PreferredMarketLookup { get; set; }
 
     }
+
 }

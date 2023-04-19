@@ -4,8 +4,11 @@ using Microsoft.AspNetCore.JsonPatch;
 using Microsoft.AspNetCore.Mvc;
 using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.ViewModels;
+using MTGCapstone.API.Extentions;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
+using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 
 namespace MTGCapstone.API.Controllers
@@ -18,7 +21,8 @@ namespace MTGCapstone.API.Controllers
         private readonly IDeckService _deckService;
         private readonly ILogger<DecksController> _logger;
 
-        public DecksController(IDeckService deckService, ILogger<DecksController> logger, IMapper mapper)
+        public DecksController(IDeckService deckService, 
+            ILogger<DecksController> logger)
         {
             _deckService = deckService
                 ?? throw new ArgumentNullException(nameof(deckService));
@@ -31,97 +35,101 @@ namespace MTGCapstone.API.Controllers
         //TODO: Add Authentication to Create Deck.
         //TODO: Add Authorization checks for manipulating decks.
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DeckVM>>> GetDecks(DeckSearchFilterParameters deckSearchFilterParameters)
+        public async Task<ActionResult<IEnumerable<DeckVM>>> GetDecks(GetDecksRequest getDecksRequest)
         {
-            var decksVM = await _deckService.GetDecksAsync(deckSearchFilterParameters);
+            var deckVMs = await _deckService.GetDecksAsync(getDecksRequest);
 
-            if (decksVM is null)
-                return NotFound();
-
-            return Ok(decksVM);
+            return Ok(deckVMs);
         }
 
         [HttpGet("{deckId}", Name = "GetDeckById")]
         public async Task<ActionResult<DeckVM>> GetDeck(int deckId)
         {
-            if (deckId is 0)
-            {
-                return BadRequest("No deckId sent in request.");
-            }
+
             var deckVM = await _deckService.GetDeckVMAsync(deckId);
 
             if (deckVM == null)
+            {
                 return NotFound();
-
+            }
             return Ok(deckVM);
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateDeck(DeckDTOForCreation deckDTOForCreation)
         {
-            if (deckDTOForCreation is null)
-                return BadRequest("DeckDTO sent from client is null.");
-            //if (_deckService.) //TODO: Figure out how to authenticate user id
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(ModelState);
 
+            }
 
-            if (!ModelState.IsValid || deckDTOForCreation.UserId == 0)
-                return UnprocessableEntity(ModelState);
-
-            var deckVM = await _deckService.CreateDeckAsync(deckDTOForCreation);
-
-            return CreatedAtRoute("GetDeckById", new { id = deckVM.Id }, deckVM);
+            var response = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
+            //TODO: Add deckId to deckViewModel
+            return CreatedAtRoute("GetDeckById", new { id = response.Value.Id }, response.Value);
         }
 
         [HttpPut("{deckId}")]
         public async Task<IActionResult> UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO)
         {
-            //TODO: Add authorization to edit this deck.
-            if (deckForUpdateDTO is null)
-                return BadRequest("DeckForUpdateDTO is null.");
-
             if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
+            {
+                return BadRequest(ModelState);
+            }
 
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+            DeckResponse response = await _deckService.UpdateDeck(User.Id(), deckId, deckForUpdateDTO);
 
-            await _deckService.UpdateDeck(deckId, deckForUpdateDTO);
-
+            if (!response.DeckExists)
+            {
+                return NotFound();
+            }
+            if (!response.IsOwner)
+            {
+                return Forbid();
+            }
+            
             return NoContent();
         }
 
         [HttpPatch("{deckId}")]
         public async Task<IActionResult> PatchDeck(int deckId, [FromBody] JsonPatchDocument<DeckForUpdateDTO> patchDoc)
         {
-            //TODO: Add authorization to edit this deck.
+            var updateResponse = await _deckService.GetDeckForUpdateDTOAsync(User.Id(), deckId);
 
-            if (patchDoc is null)
-                return BadRequest("PatchDoc from client was null");
+            if (!updateResponse.DeckExists || updateResponse.DeckForUpdate is null)
+            {
+                return NotFound();
+            }
+            if (!updateResponse.IsOwner)
+            {
+                return Forbid();
+            }
+            patchDoc.ApplyTo(updateResponse.DeckForUpdate, ModelState);
+            //The TryValidateModel will check the passed in model.
+            //If invalid, it will add the errors to the ModelState.
+            if (!ModelState.IsValid && !TryValidateModel(updateResponse.DeckForUpdate))
+            {
+                return BadRequest(ModelState);
+            }
+           
 
-            var deckForUpdateDTO = await _deckService.GetDeckForUpdateDTOAsync(deckId);
-
-            if (deckForUpdateDTO is null)
-                return NotFound($"No deck found with Id:{deckId}.");
-
-            patchDoc.ApplyTo(deckForUpdateDTO, ModelState);
-
-            if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
-
-            await _deckService.UpdateDeck(deckId, deckForUpdateDTO);
-
+            await _deckService.UpdateDeck(User.Id(), deckId, updateResponse.DeckForUpdate!);
             return NoContent();
         }
 
         [HttpDelete("{deckId}")]
         public async Task<IActionResult> DeleteDeck(int deckId)
         {
-            //TODO: Add authorization to edit this deck.
+            IResponse response = await _deckService.DeleteDeck(User.Id(), deckId);
 
-            if (!await _deckService.DeckExistsAsync(deckId))
+            if (!response.DeckExists)
+            {
                 return NotFound();
-
-            await _deckService.DeleteDeck(deckId);
+            }
+            if (!response.IsOwner)
+            {
+                return Forbid();
+            }
 
             return NoContent();
         }
@@ -134,7 +142,7 @@ namespace MTGCapstone.API.Controllers
         //My service method will take CardId and return the proper info.
 
         [HttpGet("{deckId}/Cards")]
-        public async Task<ActionResult<List<DeckCard>?>> GetCardsForDeck(int deckId)
+        public async Task<ActionResult<List<Card>?>> GetCardsForDeck(int deckId)
         {
             if (deckId is 0)
                 return BadRequest("No deckId sent in request.");
@@ -142,7 +150,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"Deck with id {deckId} not found in Database.");
 
-            var deckCards = await _deckService.GetDeckCardsForDeck(deckId);
+            var deckCards = await _deckService.GetCardsForDeck(deckId);
 
             return Ok(deckCards);
 
@@ -162,20 +170,25 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("{deckId}/Cards")]
-        public async Task<IActionResult> AddCardToDeck(int deckId, int cardId)
+        public async Task<IActionResult> AddCardToDeck(int deckId, [FromBody] int cardId)
         {
             //TODO: Add authorization to edit this deck.
+            //TODO: Create Response<T> that service will return.  
+            //TODO: move DeckExistsAsync and CardExistsAsync into AddCardToDeckAsync. 
+            //if (!await _deckService.DeckExistsAsync(deckId))
+            //    return NotFound($"No deck found with Id:{deckId}.");
 
-            if (cardId == 0)
-                return BadRequest("No cardId in request.");
-
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
-
-            if (!await _deckService.CardExistsAsync(cardId))
-                return NotFound($"No card found with Id:{cardId}.");
+            //if (!await _deckService.CardExistsAsync(cardId))
+            //    return NotFound($"No card found with Id:{cardId}.");
 
             var deckCard = await _deckService.AddCardToDeckAsync(deckId, cardId);
+
+            //var response = await _deckService.AddCardToDeckAsync(deckId, cardId);
+            //return response.status switch
+            //{
+
+            //}
+
 
             return CreatedAtRoute("GetDeckCardById", new { deckId = deckCard.DeckId, deckCardId = deckCard.Id }, deckCard);
         }
@@ -320,23 +333,12 @@ namespace MTGCapstone.API.Controllers
         [HttpPut("{deckId}/Likes")]
         public async Task<IActionResult> LikeDeckAsync(int deckId)
         {
-            //TODO: Make sure user is Authenticated.  Add Authentication attribute.
-
-
-
             if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+                return NotFound();
 
-            var likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (likingUserIdString is null || !Int32.TryParse(likingUserIdString, out int userId))
-                return BadRequest();
-
-
-            var like = await _deckService.LikeDeckAsync(deckId, userId);
+            var like = await _deckService.LikeDeckAsync(deckId, User.Id());
 
             return NoContent();
-
         }
 
         [HttpDelete("{deckId}/Likes")]
@@ -346,16 +348,12 @@ namespace MTGCapstone.API.Controllers
                 return NotFound($"No deck found with Id:{deckId}.");
 
             var likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (likingUserIdString is null || !Int32.TryParse(likingUserIdString, out int userId))
+            if (likingUserIdString is null || int.TryParse(likingUserIdString, out var likingUserId))
                 return BadRequest();
 
-            //ASK: How do I know when the UI will have access to IDs?
-            //It makes the difference for my service search
-            //on whether I use Find(byId) or FirstOrDefault(byCondition)
-            //Leaving this here to confirm, but UI will send bearer token on every request,
-            //which has the userId(string) as one of the claims.
+            
 
-            await _deckService.UnLikeDeckAsync(deckId, userId);
+            await _deckService.UnLikeDeckAsync(deckId, likingUserId);
 
             return NoContent();
         }
@@ -371,11 +369,11 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
                 return UnprocessableEntity(ModelState);
 
-            var commentingUser = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (commentingUser is null || !Int32.TryParse(commentingUser, out int userId))
+            var commentingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (commentingUserIdString is null || int.TryParse(commentingUserIdString, out var commentingUserId))
                 return BadRequest();
 
-            await _deckService.CommentOnDeckAsync(deckId, userId, commentDTO);
+            await _deckService.CommentOnDeckAsync(deckId, commentingUserId, commentDTO);
 
             return NoContent();
 

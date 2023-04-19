@@ -1,23 +1,27 @@
 ﻿using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.ViewModels;
+using System.Security.Claims;
 
 namespace MTGCapstone.API.Services.DomainServiceInterfaces
 {
     public interface IDeckService
     {
     //Decks
-        Task<List<DeckVM>?> GetDecksAsync(DeckSearchFilterParameters deckSearchFilterParameters);
-        Task<DeckForUpdateDTO?> GetDeckForUpdateDTOAsync(int id);
+        Task<List<DeckVM>?> GetDecksAsync(GetDecksRequest getDecksRequest);
+        Task<DeckForUpdateResponse> GetDeckForUpdateDTOAsync(int userId, int id);
         Task<DeckVM?> GetDeckVMAsync(int id);
-        Task<DeckVM> CreateDeckAsync(DeckDTOForCreation deckDTOForCreation);
-        Task UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO);
-        Task DeleteDeck(int deckId);
-        Task<bool> DeckExistsAsync(int id);
+        Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation);
+        Task<DeckResponse> UpdateDeck(int userId, int deckId, DeckForUpdateDTO deckForUpdateDTO);
+        Task<DeckResponse> DeleteDeck(int userId, int deckId);
+        Task<DeckResponse> IsOwnerAsync(int userId, int deckId);
+        Task<bool> DeckExistsAsync(int deckId);
+
 
 
     //DeckCards
-        Task<List<DeckCard>> GetDeckCardsForDeck(int deckId);
+        Task<List<Card>> GetCardsForDeck(int deckId);
         Task<DeckCard?> GetDeckCardByIdAsync(int deckCardId);
         Task<DeckCard> AddCardToDeckAsync(int deckId, int cardId);
         Task UpdateDeckCardPrintingAsync(int deckCardId, int cardId);
