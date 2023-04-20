@@ -8,14 +8,14 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
 {
     public interface IDeckService
     {
-    //Decks
-        Task<List<DeckVM>?> GetDecksAsync(GetDecksRequest getDecksRequest);
+        //Decks
+        Task<Response<List<DeckVM>?>> GetDecksAsync(GetDecksRequest getDecksRequest);
         Task<DeckForUpdateResponse> GetDeckForUpdateDTOAsync(int userId, int id);
         Task<DeckVM?> GetDeckVMAsync(int id);
         Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation);
         Task<DeckResponse> UpdateDeck(int userId, int deckId, DeckForUpdateDTO deckForUpdateDTO);
-        Task<DeckResponse> DeleteDeck(int userId, int deckId);
-        Task<DeckResponse> IsOwnerAsync(int userId, int deckId);
+        Task<Response<Deck>> DeleteDeck(int userId, int deckId);
+        Task<Response<Deck>> GetValidEditableDeck(int userId, int deckId);
         Task<bool> DeckExistsAsync(int deckId);
 
 
