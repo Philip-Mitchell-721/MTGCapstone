@@ -1,4 +1,5 @@
 ﻿using Microsoft.CodeAnalysis.VisualBasic.Syntax;
+using System.Security.Claims;
 
 namespace MTGCapstone.API.Middleware
 {
@@ -15,14 +16,11 @@ namespace MTGCapstone.API.Middleware
 
         public async Task InvokeAsync(HttpContext context)
         {
-            //ASK: Do these two ifs check the same thing?  How does the second one work?
-            //if (context.User.Identity is not null && context.User.Identity.IsAuthenticated)
-            //{
-
-            //}
-            if (context.User.Identity is { IsAuthenticated: true})
+            
+            //if (context.User.Identity is { IsAuthenticated: true})
+            if (context.User.Identity?.IsAuthenticated ?? false)
             {
-                var user = context.User;
+                ClaimsPrincipal user = context.User;
                 using (_logger.BeginScope("User:{user}", user.Identity.Name))
                 {
                     await _next(context);

@@ -2,8 +2,10 @@
 
 namespace MTGCapstone.API.Data.DTOs
 {
-    public class DeckForUpdateDTO
+    public class DeckForUpdateDto
     {
+        [Required]
+        public int Id { get; set; }
         [Required]
         public string? Name { get; set; }
         public bool IsPrivate { get; set; }

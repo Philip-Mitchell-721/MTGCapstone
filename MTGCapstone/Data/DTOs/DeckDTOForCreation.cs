@@ -2,7 +2,7 @@
 
 namespace MTGCapstone.API.Data.DTOs
 {
-    public class DeckDTOForCreation
+    public class DeckForCreationDto
     {
         [Required]
         public string? Name { get; set; }

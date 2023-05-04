@@ -6,7 +6,6 @@
         public int? DeckCategoryId { get; set; }
         public int? DeckCardId { get; set; }
 
-        public int Quantity { get; set; }
         public DeckCard? DeckCard { get; set; }
         public DeckCategory? DeckCategory { get; set; }
     }

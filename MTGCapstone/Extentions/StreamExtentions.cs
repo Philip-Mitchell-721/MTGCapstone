@@ -17,9 +17,9 @@ namespace MTGCapstone.API.Extentions
                 throw new NotSupportedException("Can't read from this stream.");
             }
 
-            using var streamReader = new StreamReader(stream);
-            using var jsonTextReader = new JsonTextReader(streamReader);
-            var jsonSerializer = new JsonSerializer();
+            using StreamReader streamReader = new StreamReader(stream);
+            using JsonTextReader jsonTextReader = new JsonTextReader(streamReader);
+            JsonSerializer jsonSerializer = new JsonSerializer();
             return jsonSerializer.Deserialize<T>(jsonTextReader);
 
 

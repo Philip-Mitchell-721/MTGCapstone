@@ -39,10 +39,10 @@ namespace MTGCapstone.API.Services
         {
             try
             {
-                var response = await _scryfallClient.Client
+                HttpResponseMessage response = await _scryfallClient.Client
                     .GetAsync("https://api.scryfall.com/bulk-data", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
                 
-                using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
 
                 if (response.IsSuccessStatusCode)
                 {
@@ -105,13 +105,13 @@ namespace MTGCapstone.API.Services
                 await GetBulkDataSourcesAsync(cancellationToken);
                 if (_capstoneDbContext.BulkData is not null)
                 {
-                    var rulingsBulk = await _capstoneDbContext.BulkData.FirstOrDefaultAsync(bd => bd.Name == "Rulings");
+                    BulkData? rulingsBulk = await _capstoneDbContext.BulkData.FirstOrDefaultAsync(bd => bd.Name == "Rulings");
                     if (rulingsBulk is not null)
                     {
-                        var response = await _scryfallClient.Client
+                        HttpResponseMessage response = await _scryfallClient.Client
                             .GetAsync($"{rulingsBulk.DownloadUri}", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
-                        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
 
                         if (response.IsSuccessStatusCode)
                         {
@@ -125,7 +125,7 @@ namespace MTGCapstone.API.Services
 
                                 foreach (RulingsDTO item in bulkRulings)
                                 {
-                                    var incomingRuling = new Ruling();
+                                    Ruling incomingRuling = new Ruling();
                                     if (item is not null)
                                     {
                                         incomingRuling.OracleId = item.oracle_id;
@@ -175,13 +175,13 @@ namespace MTGCapstone.API.Services
                 await GetBulkDataSourcesAsync(cancellationToken);
                 if (_capstoneDbContext.BulkData is not null)
                 {
-                    var allCardsBulkData = await _capstoneDbContext.BulkData.FirstOrDefaultAsync(bd => bd.Name == "All Cards");
+                    BulkData? allCardsBulkData = await _capstoneDbContext.BulkData.FirstOrDefaultAsync(bd => bd.Name == "All Cards");
                     if (allCardsBulkData is not null)
                     {
-                        var response = await _scryfallClient.Client
+                        HttpResponseMessage response = await _scryfallClient.Client
                             .GetAsync($"{allCardsBulkData.DownloadUri}", HttpCompletionOption.ResponseHeadersRead, cancellationToken);
 
-                        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        using Stream stream = await response.Content.ReadAsStreamAsync(cancellationToken);
 
                         if (response.IsSuccessStatusCode)
                         {
@@ -209,7 +209,7 @@ namespace MTGCapstone.API.Services
                                     if (scryfallCard is not null)
                                     {
 
-                                        var incomingCard = MapScryfallCardToCard(scryfallCard);
+                                        Card incomingCard = MapScryfallCardToCard(scryfallCard);
 
                                         cards.Add(incomingCard);
 
@@ -217,77 +217,77 @@ namespace MTGCapstone.API.Services
                                         #region Creating needed lookups
                                         if (scryfallCard.artist_ids is not null)
                                         {
-                                            foreach (var artistId in scryfallCard.artist_ids)
+                                            foreach (string artistId in scryfallCard.artist_ids)
                                             {
                                                 if (!scryfallArtistIdsLookUps.Any(c => c.Value == artistId))
                                                 {
-                                                    var newArtistId = new ScryfallArtistIdsLookUp() { Value = artistId };
+                                                    ScryfallArtistIdsLookUp newArtistId = new ScryfallArtistIdsLookUp() { Value = artistId };
                                                     scryfallArtistIdsLookUps.Add(newArtistId);
                                                 }
                                             }
                                         }
                                         if (scryfallCard.keywords is not null)
                                         {
-                                            foreach (var keyword in scryfallCard.keywords)
+                                            foreach (string keyword in scryfallCard.keywords)
                                             {
                                                 if (!keywordsLookUps.Any(c => c.Value == keyword))
                                                 {
-                                                    var newKeyword = new KeywordsLookUp() { Value = keyword };
+                                                    KeywordsLookUp newKeyword = new KeywordsLookUp() { Value = keyword };
                                                     keywordsLookUps.Add(newKeyword);
                                                 }
                                             }
                                         }
                                         if (scryfallCard.games is not null)
                                         {
-                                            foreach (var game in scryfallCard.games)
+                                            foreach (string game in scryfallCard.games)
                                             {
                                                 if (!gamesLookUps.Any(c => c.Value == game))
                                                 {
-                                                    var newGame = new GamesLookUp() { Value = game };
+                                                    GamesLookUp newGame = new GamesLookUp() { Value = game };
                                                     gamesLookUps.Add(newGame);
                                                 }
                                             }
                                         }
                                         if (scryfallCard.finishes is not null)
                                         {
-                                            foreach (var finish in scryfallCard.finishes)
+                                            foreach (string finish in scryfallCard.finishes)
                                             {
                                                 if (!finishesLookUps.Any(c => c.Value == finish))
                                                 {
-                                                    var newFinish = new FinishesLookUp() { Value = finish };
+                                                    FinishesLookUp newFinish = new FinishesLookUp() { Value = finish };
                                                     finishesLookUps.Add(newFinish);
                                                 }
                                             }
                                         }
                                         if (scryfallCard.color_identity is not null)
                                         {
-                                            foreach (var colorIdentity in scryfallCard.color_identity)
+                                            foreach (string colorIdentity in scryfallCard.color_identity)
                                             {
                                                 if (!colorIdentityLookUps.Any(c => c.Value == colorIdentity))
                                                 {
-                                                    var newColorIdentity = new ColorIdentityLookUp() { Value = colorIdentity };
+                                                    ColorIdentityLookUp newColorIdentity = new ColorIdentityLookUp() { Value = colorIdentity };
                                                     colorIdentityLookUps.Add(newColorIdentity);
                                                 }
                                             }
                                         }
                                         if (scryfallCard.color_indicator is not null)
                                         {
-                                            foreach (var colorIndicator in scryfallCard.color_indicator)
+                                            foreach (string colorIndicator in scryfallCard.color_indicator)
                                             {
                                                 if (!colorIndicatorLookUps.Any(c => c.Value == colorIndicator))
                                                 {
-                                                    var newColorIndicator = new ColorIndicatorLookUp() { Value = colorIndicator };
+                                                    ColorIndicatorLookUp newColorIndicator = new ColorIndicatorLookUp() { Value = colorIndicator };
                                                     colorIndicatorLookUps.Add(newColorIndicator);
                                                 }
                                             }
                                         }
                                         if (scryfallCard.colors is not null)
                                         {
-                                            foreach (var color in scryfallCard.colors)
+                                            foreach (string color in scryfallCard.colors)
                                             {
                                                 if (!colorsLookUps.Any(c => c.Value == color))
                                                 {
-                                                    var newColor = new ColorsLookUp() { Value = color };
+                                                    ColorsLookUp newColor = new ColorsLookUp() { Value = color };
                                                     colorsLookUps.Add(newColor);
                                                 }
                                             }
@@ -339,7 +339,7 @@ namespace MTGCapstone.API.Services
                                 List<PurchaseUris> purchaseUris = new List<PurchaseUris>();
                                 int incrementCount = 0;
 
-                                foreach (var scryfallCard in allScryfallCards)
+                                foreach (ScryfallCard scryfallCard in allScryfallCards)
                                 {
                                     Card? cardToMapRelatedDataTo = cards.FirstOrDefault(c => c.ScryfallId == scryfallCard.id);
                                     if (cardToMapRelatedDataTo is not null)
@@ -457,7 +457,7 @@ namespace MTGCapstone.API.Services
 
         private Card MapScryfallCardToCard(ScryfallCard scryfallCard)
         {
-            var newCard = new Card();
+            Card newCard = new Card();
 
             //newCard.Id = new Guid();
             newCard.ScryfallId = scryfallCard.id;
@@ -528,9 +528,9 @@ namespace MTGCapstone.API.Services
             //map multiverseIds
             if (scryfallCard.multiverse_ids is not null)
             {
-                foreach (var lookup in scryfallCard.multiverse_ids)
+                foreach (int lookup in scryfallCard.multiverse_ids)
                 {
-                    var multiverseId = new MultiverseIdsLookUp()
+                    MultiverseIdsLookUp multiverseId = new MultiverseIdsLookUp()
                     {
                         Value = lookup,
                         CardId = card.Id,
@@ -559,12 +559,12 @@ namespace MTGCapstone.API.Services
             //map Colors
             if (scryfallCard.colors is not null)
             {
-                foreach (var color in scryfallCard.colors)
+                foreach (string color in scryfallCard.colors)
                 {
-                    var colorsLookUp = colorsLookUps.FirstOrDefault(c => c.Value == color);
+                    ColorsLookUp? colorsLookUp = colorsLookUps.FirstOrDefault(c => c.Value == color);
                     if (colorsLookUp is not null)
                     {
-                        var cardColorsLookUp = new CardColorsLookUp()
+                        CardColorsLookUp cardColorsLookUp = new CardColorsLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -583,12 +583,12 @@ namespace MTGCapstone.API.Services
             //map ColorIndicators
             if (scryfallCard.color_indicator is not null)
             {
-                foreach (var color in scryfallCard.color_indicator)
+                foreach (string color in scryfallCard.color_indicator)
                 {
-                    var colorIndicatorLookUp = colorIndicatorLookUps.FirstOrDefault(c => c.Value == color);
+                    ColorIndicatorLookUp? colorIndicatorLookUp = colorIndicatorLookUps.FirstOrDefault(c => c.Value == color);
                     if (colorIndicatorLookUp is not null)
                     {
-                        var cardColorIndicatorLookUp = new CardColorIndicatorLookUp()
+                        CardColorIndicatorLookUp cardColorIndicatorLookUp = new CardColorIndicatorLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -608,12 +608,12 @@ namespace MTGCapstone.API.Services
             //map ColorIdentity
             if (scryfallCard.color_identity is not null)
             {
-                foreach (var color in scryfallCard.color_identity)
+                foreach (string color in scryfallCard.color_identity)
                 {
-                    var colorIdentityLookUp = colorIdentityLookUps.FirstOrDefault(c => c.Value == color);
+                    ColorIdentityLookUp? colorIdentityLookUp = colorIdentityLookUps.FirstOrDefault(c => c.Value == color);
                     if (colorIdentityLookUp is not null)
                     {
-                        var cardColorIdentityLookUp = new CardColorIdentityLookUp()
+                        CardColorIdentityLookUp cardColorIdentityLookUp = new CardColorIdentityLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -632,12 +632,12 @@ namespace MTGCapstone.API.Services
             //map Keywords
             if (scryfallCard.keywords is not null)
             {
-                foreach (var keyword in scryfallCard.keywords)
+                foreach (string keyword in scryfallCard.keywords)
                 {
-                    var keywordsLookUp = keywordsLookUps.FirstOrDefault(c => c.Value == keyword);
+                    KeywordsLookUp? keywordsLookUp = keywordsLookUps.FirstOrDefault(c => c.Value == keyword);
                     if (keywordsLookUp is not null)
                     {
-                        var cardKeywordsLookUp = new CardKeywordsLookUp()
+                        CardKeywordsLookUp cardKeywordsLookUp = new CardKeywordsLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -685,12 +685,12 @@ namespace MTGCapstone.API.Services
             //map Games
             if (scryfallCard.games is not null)
             {
-                foreach (var game in scryfallCard.games)
+                foreach (string game in scryfallCard.games)
                 {
-                    var gamesLookUp = gamesLookUps.FirstOrDefault(c => c.Value == game);
+                    GamesLookUp? gamesLookUp = gamesLookUps.FirstOrDefault(c => c.Value == game);
                     if (gamesLookUp is not null)
                     {
-                        var cardgamesLookUp = new CardGamesLookUp()
+                        CardGamesLookUp cardgamesLookUp = new CardGamesLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -709,12 +709,12 @@ namespace MTGCapstone.API.Services
             //map Finishes
             if (scryfallCard.finishes is not null)
             {
-                foreach (var finish in scryfallCard.finishes)
+                foreach (string finish in scryfallCard.finishes)
                 {
-                    var finishesLookUp = finishesLookUps.FirstOrDefault(c => c.Value == finish);
+                    FinishesLookUp? finishesLookUp = finishesLookUps.FirstOrDefault(c => c.Value == finish);
                     if (finishesLookUp is not null)
                     {
-                        var cardFinishesLookUp = new CardFinishesLookUp()
+                        CardFinishesLookUp cardFinishesLookUp = new CardFinishesLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -733,12 +733,12 @@ namespace MTGCapstone.API.Services
             //map ArtistIds
             if (scryfallCard.artist_ids is not null)
             {
-                foreach (var artistId in scryfallCard.artist_ids)
+                foreach (string artistId in scryfallCard.artist_ids)
                 {
-                    var artistIdLookUp = scryfallArtistIdsLookUps.FirstOrDefault(c => c.Value == artistId);
+                    ScryfallArtistIdsLookUp? artistIdLookUp = scryfallArtistIdsLookUps.FirstOrDefault(c => c.Value == artistId);
                     if (artistIdLookUp is not null)
                     {
-                        var cardArtistIdLookUp = new CardScryfallArtistIdsLookUp()
+                        CardScryfallArtistIdsLookUp cardArtistIdLookUp = new CardScryfallArtistIdsLookUp()
                         {
                             CardId = card.Id,
                             Card = card,
@@ -794,21 +794,21 @@ namespace MTGCapstone.API.Services
             //map CardFaces
             if (scryfallCard.card_faces is not null)
             {
-                foreach (var scryfallCardFace in scryfallCard.card_faces)
+                foreach (Card_Face scryfallCardFace in scryfallCard.card_faces)
                 {
-                    var entityCardFace = card.CardFaces.FirstOrDefault(c => c.CardId == card.Id);
+                    CardFace? entityCardFace = card.CardFaces.FirstOrDefault(c => c.CardId == card.Id);
                     if (entityCardFace is not null)
                     {
                         //map Colors to CardFace
                         if (scryfallCardFace.colors is not null)
                         {
-                            foreach (var color in scryfallCardFace.colors)
+                            foreach (string color in scryfallCardFace.colors)
                             {
 
-                                var colorsLookUp = colorsLookUps.FirstOrDefault(c => c.Value == color);
+                                ColorsLookUp? colorsLookUp = colorsLookUps.FirstOrDefault(c => c.Value == color);
                                 if (colorsLookUp is not null)
                                 {
-                                    var cardColorsLookUp = new CardColorsLookUp()
+                                    CardColorsLookUp cardColorsLookUp = new CardColorsLookUp()
                                     {
                                         CardFaceId = entityCardFace.Id,
                                         CardFace = entityCardFace,
@@ -826,12 +826,12 @@ namespace MTGCapstone.API.Services
                         //map ColorIndicators to CardFace
                         if (scryfallCardFace.color_indicator is not null)
                         {
-                            foreach (var color in scryfallCardFace.color_indicator)
+                            foreach (string color in scryfallCardFace.color_indicator)
                             {
-                                var colorIndicatorLookUp = colorIndicatorLookUps.FirstOrDefault(c => c.Value == color);
+                                ColorIndicatorLookUp? colorIndicatorLookUp = colorIndicatorLookUps.FirstOrDefault(c => c.Value == color);
                                 if (colorIndicatorLookUp is not null)
                                 {
-                                    var cardColorIndicatorLookUp = new CardColorIndicatorLookUp()
+                                    CardColorIndicatorLookUp cardColorIndicatorLookUp = new CardColorIndicatorLookUp()
                                     {
                                         CardFaceId = entityCardFace.Id,
                                         CardFace = entityCardFace,
@@ -873,9 +873,9 @@ namespace MTGCapstone.API.Services
         {
             if (scryfallCard.card_faces is not null)
             {
-                foreach (var face in scryfallCard.card_faces)
+                foreach (Card_Face face in scryfallCard.card_faces)
                 {
-                    var newFace = new CardFace()
+                    CardFace newFace = new CardFace()
                     {
                         CardId = card.Id,
                         Name = face.name,

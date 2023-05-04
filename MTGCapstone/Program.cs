@@ -15,7 +15,7 @@ using MTGCapstone.API.Services.DomainServiceInterfaces;
 using MTGCapstone.API.Services.DomainServices;
 using System.Text;
 
-var builder = WebApplication.CreateBuilder(args);
+WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
@@ -50,7 +50,6 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(opt =>
 {
     opt.User.RequireUniqueEmail = true;
 })
-//.AddRoles<IdentityRole>() //ASK: Is this line needed? TODO: Look this up.
 .AddEntityFrameworkStores<CapstoneDbContext>();
 
 
@@ -90,7 +89,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddSingleton<IAuthorizationHandler, IsOwnerAuthorizationHandler>();
 
 
-var app = builder.Build();
+WebApplication app = builder.Build();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

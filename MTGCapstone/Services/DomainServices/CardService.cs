@@ -1,6 +1,9 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
 using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
+using MTGCapstone.API.Data.ViewModels;
 using MTGCapstone.API.DbContexts;
 using System.Reflection;
 
@@ -10,23 +13,24 @@ namespace MTGCapstone.API.Services
     {
         private readonly CapstoneDbContext _context;
         private readonly ILogger<CardService> _logger;
+        private readonly IMapper _mapper;
 
         public CardService(CapstoneDbContext context,
-            ILogger<CardService> logger)
+            ILogger<CardService> logger,
+            IMapper mapper)
         {
-            _context = context
-                ?? throw new ArgumentNullException(nameof(context));
-            _logger = logger
-                ?? throw new ArgumentNullException(nameof(logger));
+            _context = context ?? throw new ArgumentNullException(nameof(context));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _mapper = mapper ?? throw new ArgumentNullException(nameof(mapper));
         }
         public async Task<Card?> GetCardAsync(int id)
         {
             return await _context.Cards.FindAsync(id);
         }
 
-        public async Task<List<Card>?> GetCardsAsync(CardResourceParameters cardResourceParameters)
+        public async Task<Response<List<CardVMForDeck>>> GetCardsAsync(CardResourceParameters cardResourceParameters)
         {
-            var collection = _context.Cards as IQueryable<Card>;
+            IQueryable<Card> collection = _context.Cards as IQueryable<Card>;
 
 
             if (!string.IsNullOrWhiteSpace(cardResourceParameters.Name))
@@ -46,9 +50,8 @@ namespace MTGCapstone.API.Services
 
             if (cardResourceParameters.OrderBy != "EdhrecRank")
             {
-                Card card = new(); 
-                //TODO: Change this to DTO later (so that you can only match props I want to expose)
-                var orderByInfo = card.GetType().GetProperty(cardResourceParameters.OrderBy);
+                CardVMForDeck card = new();
+                PropertyInfo? orderByInfo = card.GetType().GetProperty(cardResourceParameters.OrderBy);
                 if (orderByInfo is not null)
                 {
 
@@ -64,7 +67,7 @@ namespace MTGCapstone.API.Services
                     && c.EdhrecRank != 0);
 
             //ASK:TODO: No idea why the F this won't work...
-            var collectionToReturn = collection
+            IOrderedQueryable<Card> collectionToReturn = collection
                 .GroupBy(c => c.OracleId)
                 .Select(c => c.First())
                 .OrderBy(c => c.EdhrecRank);
@@ -83,10 +86,10 @@ namespace MTGCapstone.API.Services
             //ORDER BY EdhrecRank1 ASC) as j on x.Id = j.id
 
 
-            var collection2 = await collection.Skip(cardResourceParameters.PageSize * (cardResourceParameters.PageNumber - 1))
+            List<Card> collection2 = await collection.Skip(cardResourceParameters.PageSize * (cardResourceParameters.PageNumber - 1))
                 .Take(cardResourceParameters.PageSize).ToListAsync();
 
-            return collection2;
+            return new Response<List<CardVMForDeck>>() { Value = _mapper.Map<List<CardVMForDeck>>(collection2) };
         }
     }
 }

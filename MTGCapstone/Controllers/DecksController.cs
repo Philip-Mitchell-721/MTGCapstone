@@ -30,107 +30,126 @@ namespace MTGCapstone.API.Controllers
                 ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        //Decks
-        //TODO: Get Users Decks once figure out userId/Authentication
-        //TODO: Add Authentication to Create Deck.
-        //TODO: Add Authorization checks for manipulating decks.
+        
         [HttpGet]
-        public async Task<ActionResult<IEnumerable<DeckVM>>> GetDecks(GetDecksRequest getDecksRequest)
+        public async Task<IActionResult> SearchDecks([FromQuery] GetDecksRequest getDecksRequest)
         {
-            var deckVMs = await _deckService.GetDecksAsync(getDecksRequest);
+            Response<List<DeckVM>> response = await _deckService.GetDecksAsync(getDecksRequest);
 
-            return Ok(deckVMs);
+            return Ok(response);
+        }
+
+        [HttpGet("Personal")]
+        public async Task<IActionResult> GetMyDecks([FromQuery] PersonalDecksRequest decksRequest)
+        {
+            Response<List<DeckVM>> response = await _deckService.GetMyDecksAsync(User.Id(), decksRequest);
+
+            return Ok(response);
         }
 
         [HttpGet("{deckId}", Name = "GetDeckById")]
         public async Task<ActionResult<DeckVM>> GetDeck(int deckId)
         {
 
-            var deckVM = await _deckService.GetDeckVMAsync(deckId);
-
-            if (deckVM == null)
+            Response<DeckVM> response = await _deckService.GetDeckWithCardsAsync(deckId);
+            if (!response.Success || response.Value is null)
             {
-                return NotFound();
+                return response.StatusCode switch
+                {
+                    400 => NotFound(),
+                    403 => Forbid(),
+                    _ => StatusCode(500)
+                };
             }
-            return Ok(deckVM);
+            return Ok(response);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateDeck(DeckDTOForCreation deckDTOForCreation)
+        public async Task<IActionResult> CreateDeck(DeckForCreationDto deckDTOForCreation)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
-
             }
 
-            var response = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
-            //TODO: Add deckId to deckViewModel
-            return CreatedAtRoute("GetDeckById", new { id = response.Value.Id }, response.Value);
+            Response<DeckVM> response = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
+            if (!response.Success)
+            {
+                return response.StatusCode switch
+                {
+                    400 => NotFound(),
+                    403 => Forbid(),
+                    _ => StatusCode(500)
+                };
+            }
+            //ASK: Is this what I should return here or should I just return my response with the new deckVM as the value?
+            return CreatedAtRoute("GetDeckById", new { id = response.Value!.Id }, response.Value);
         }
 
         [HttpPut("{deckId}")]
-        public async Task<IActionResult> UpdateDeck(int deckId, DeckForUpdateDTO deckForUpdateDTO)
+        public async Task<IActionResult> UpdateDeck(int deckId, DeckForUpdateDto deckForUpdateDTO)
         {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            DeckResponse response = await _deckService.UpdateDeck(User.Id(), deckId, deckForUpdateDTO);
+            var response = await _deckService.UpdateDeckAsync(User.Id(), deckId, deckForUpdateDTO);
 
-            if (!response.DeckExists)
+            if (!response.Success || response.Value is null)
             {
-                return NotFound();
+                return response.StatusCode switch
+                {
+                    400 => NotFound(),
+                    403 => Forbid(),
+                    _ => StatusCode(500)
+                };
             }
-            if (!response.IsOwner)
-            {
-                return Forbid();
-            }
-            
             return NoContent();
         }
 
         [HttpPatch("{deckId}")]
-        public async Task<IActionResult> PatchDeck(int deckId, [FromBody] JsonPatchDocument<DeckForUpdateDTO> patchDoc)
+        public async Task<IActionResult> PatchDeck(int deckId, [FromBody] JsonPatchDocument<DeckForUpdateDto> patchDoc)
         {
-            var updateResponse = await _deckService.GetDeckForUpdateDTOAsync(User.Id(), deckId);
+            Response<DeckForUpdateDto> updateResponse = await _deckService.GetDeckForPatchDTOAsync(User.Id(), deckId);
 
-            if (!updateResponse.DeckExists || updateResponse.DeckForUpdate is null)
+            if (!updateResponse.Success || updateResponse.Value is null) 
             {
-                return NotFound();
+                return updateResponse.StatusCode switch
+                {
+                    400 => NotFound(),
+                    403 => Forbid(),
+                    _ => StatusCode(500)
+                };
             }
-            if (!updateResponse.IsOwner)
-            {
-                return Forbid();
-            }
-            patchDoc.ApplyTo(updateResponse.DeckForUpdate, ModelState);
+            
+            patchDoc.ApplyTo(updateResponse.Value, ModelState);
             //The TryValidateModel will check the passed in model.
             //If invalid, it will add the errors to the ModelState.
-            if (!ModelState.IsValid && !TryValidateModel(updateResponse.DeckForUpdate))
+            if (!ModelState.IsValid && !TryValidateModel(updateResponse.Value))
             {
                 return BadRequest(ModelState);
             }
            
 
-            await _deckService.UpdateDeck(User.Id(), deckId, updateResponse.DeckForUpdate!);
+            await _deckService.UpdateDeckAsync(User.Id(), deckId, updateResponse.Value);
             return NoContent();
         }
 
         [HttpDelete("{deckId}")]
         public async Task<IActionResult> DeleteDeck(int deckId)
         {
-            IResponse response = await _deckService.DeleteDeck(User.Id(), deckId);
+            var response = await _deckService.DeleteDeckAsync(User.Id(), deckId);
 
-            if (!response.DeckExists)
+            if (!response.Success || response.Value is null)
             {
-                return NotFound();
+                return response.StatusCode switch
+                {
+                    400 => NotFound(),
+                    403 => Forbid(),
+                    _ => StatusCode(500)
+                };
             }
-            if (!response.IsOwner)
-            {
-                return Forbid();
-            }
-
             return NoContent();
         }
 
@@ -141,20 +160,15 @@ namespace MTGCapstone.API.Controllers
         //GetCardInDeckById instead of GetDeckCardById.  UI passes in CardId becuase they don't know about DeckCards or DeckCardIds.
         //My service method will take CardId and return the proper info.
 
-        [HttpGet("{deckId}/Cards")]
-        public async Task<ActionResult<List<Card>?>> GetCardsForDeck(int deckId)
-        {
-            if (deckId is 0)
-                return BadRequest("No deckId sent in request.");
+        //[HttpGet("{deckId}/Cards")]
+        //public async Task<ActionResult<List<Card>?>> GetCardsForDeck(int deckId)
+        //{
+        //    Response<DeckVM> response = await _deckService.GetDeckWithCardsAsync(deckId);
+        //    response.Value = response.Value.Cards;
 
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"Deck with id {deckId} not found in Database.");
+        //    return Ok(response);
 
-            var deckCards = await _deckService.GetCardsForDeck(deckId);
-
-            return Ok(deckCards);
-
-        }
+        //}
 
         [HttpGet("{deckId}/Cards/{deckCardId}", Name = "GetDeckCardById")]
         public async Task<ActionResult<DeckCard>> GetDeckCardById(int deckId, int deckCardId)
@@ -162,7 +176,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
+            DeckCard? deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
             if (deckCard is null)
                 return NotFound();
 
@@ -181,7 +195,7 @@ namespace MTGCapstone.API.Controllers
             //if (!await _deckService.CardExistsAsync(cardId))
             //    return NotFound($"No card found with Id:{cardId}.");
 
-            var deckCard = await _deckService.AddCardToDeckAsync(deckId, cardId);
+            DeckCard deckCard = await _deckService.AddCardToDeckAsync(deckId, cardId);
 
             //var response = await _deckService.AddCardToDeckAsync(deckId, cardId);
             //return response.status switch
@@ -205,7 +219,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.CardExistsAsync(cardId))
                 return NotFound($"No card found with Id:{cardId}.");
 
-            var deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
+            DeckCard? deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
             if (deckCard is null)
                 return NotFound($"No deckCard found with Id:{deckCardId}.");
 
@@ -220,7 +234,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
+            DeckCard? deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
             if (deckCard is null)
                 return NotFound($"No deckCard found with Id:{deckCardId}.");
 
@@ -242,7 +256,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"Deck with id {deckId} not found in Database.");
 
-            var deckCards = await _deckService.GetDeckCategoriesForDeck(deckId);
+            List<DeckCategory> deckCards = await _deckService.GetDeckCategoriesForDeck(deckId);
 
             return Ok(deckCards);
         }
@@ -253,7 +267,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var deckCategory = await _deckService.GetDeckCategoryByIdAsync(deckCategoryId);
+            DeckCategory? deckCategory = await _deckService.GetDeckCategoryByIdAsync(deckCategoryId);
             if (deckCategory is null)
                 return NotFound();
 
@@ -271,7 +285,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var deckCategory = await _deckService.AddCategoryToDeckAsync(deckId, name);
+            DeckCategory deckCategory = await _deckService.AddCategoryToDeckAsync(deckId, name);
 
             return CreatedAtRoute("GetDeckCategoryById", new { deckId = deckCategory.DeckId, deckCategoryId = deckCategory.Id }, deckCategory);
         }
@@ -285,7 +299,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var deckCategory = await _deckService.GetDeckCategoryByIdAsync(deckCategoryId);
+            DeckCategory? deckCategory = await _deckService.GetDeckCategoryByIdAsync(deckCategoryId);
             if (deckCategory is null)
                 return NotFound($"No deckCategory found with Id:{deckCategoryId}.");
 
@@ -300,7 +314,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var deckCategory = await _deckService.GetDeckCategoryByIdAsync(deckCategoryId);
+            DeckCategory? deckCategory = await _deckService.GetDeckCategoryByIdAsync(deckCategoryId);
             if (deckCategory is null)
                 return NotFound($"No deckCard found with Id:{deckCategoryId}.");
 
@@ -322,7 +336,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var like = await _deckService.GetLikeByIdAsync(likeId);
+            Like? like = await _deckService.GetLikeByIdAsync(likeId);
 
             if (like is null)
                 return NotFound();
@@ -336,7 +350,7 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound();
 
-            var like = await _deckService.LikeDeckAsync(deckId, User.Id());
+            Like like = await _deckService.LikeDeckAsync(deckId, User.Id());
 
             return NoContent();
         }
@@ -347,8 +361,8 @@ namespace MTGCapstone.API.Controllers
             if (!await _deckService.DeckExistsAsync(deckId))
                 return NotFound($"No deck found with Id:{deckId}.");
 
-            var likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (likingUserIdString is null || int.TryParse(likingUserIdString, out var likingUserId))
+            string? likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (likingUserIdString is null || int.TryParse(likingUserIdString, out int likingUserId))
                 return BadRequest();
 
             
@@ -369,8 +383,8 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
                 return UnprocessableEntity(ModelState);
 
-            var commentingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (commentingUserIdString is null || int.TryParse(commentingUserIdString, out var commentingUserId))
+            string? commentingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (commentingUserIdString is null || int.TryParse(commentingUserIdString, out int commentingUserId))
                 return BadRequest();
 
             await _deckService.CommentOnDeckAsync(deckId, commentingUserId, commentDTO);

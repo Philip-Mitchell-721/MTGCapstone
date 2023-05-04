@@ -3,8 +3,10 @@
     public class DeckCard
     {
         public int Id { get; set; }
-        public int? CardId { get; set; }
+        public int? CardId { get; set; } 
         public int? DeckId { get; set; }
+        public string? Board { get; set; }
+        public int Quantity { get; set; }
         public List<DeckCategoryDeckCard> DeckCategories { get; set; } = new List<DeckCategoryDeckCard>();
 
         public Card? Card { get; set; } //Cards.Where(c => c.Id == deckCard.cardId)

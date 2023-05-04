@@ -23,28 +23,28 @@ namespace MTGCapstone.API.Extentions
                 return source;
             }
 
-            var orderByString = string.Empty;
+            string orderByString = string.Empty;
 
             // the orderBy string is separated by ",", so we split it.
-            var orderByAfterSplit = orderBy.Split(',');
+            string[] orderByAfterSplit = orderBy.Split(',');
 
             // apply each orderby clause
-            foreach (var orderByClause in orderByAfterSplit)
+            foreach (string orderByClause in orderByAfterSplit)
             {
                 // trim the orderBy clause, as it might contain leading
                 // or trailing spaces.  Can't trim the var in foreach,
                 // so use another var.
 
-                var trimmedOrderByClause = orderByClause.Trim();
+                string trimmedOrderByClause = orderByClause.Trim();
 
                 // if the sort option ends with " desc", we order
                 // descending, otherwise ascending
-                var orderDescending = trimmedOrderByClause.EndsWith(" desc");
+                bool orderDescending = trimmedOrderByClause.EndsWith(" desc");
 
                 // remove " asc" or " desc" from the orderByClause, so we 
                 // get the property name to look for in the mapping dictionary
-                var indexOfFirstSpace = trimmedOrderByClause.IndexOf(" ");
-                var propertyName = indexOfFirstSpace == -1 ? trimmedOrderByClause :
+                int indexOfFirstSpace = trimmedOrderByClause.IndexOf(" ");
+                string propertyName = indexOfFirstSpace == -1 ? trimmedOrderByClause :
                     trimmedOrderByClause.Remove(indexOfFirstSpace);
 
                 // find the matching property
@@ -52,9 +52,9 @@ namespace MTGCapstone.API.Extentions
                 {
                     throw new ArgumentNullException($"Key mapping for {propertyName} is missing");
                 }
-                
+
                 // get the PrpertyMappingValue
-                var propertyMappingValue = mappingDictionary[propertyName];
+                PropertyMappingValue? propertyMappingValue = mappingDictionary[propertyName];
 
                 if (propertyMappingValue is null)
                 {
@@ -68,7 +68,7 @@ namespace MTGCapstone.API.Extentions
                 }
 
                 // Run through the property names
-                foreach (var destinationPropery in propertyMappingValue.DestinationProperties)
+                foreach (string destinationPropery in propertyMappingValue.DestinationProperties)
                 {
                     orderByString = orderByString
                         + (string.IsNullOrWhiteSpace(orderByString) ? string.Empty : ", ")

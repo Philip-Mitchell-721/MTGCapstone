@@ -2,6 +2,8 @@
 using Microsoft.AspNetCore.Mvc;
 using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
+using MTGCapstone.API.Data.Responses;
+using MTGCapstone.API.Data.ViewModels;
 using MTGCapstone.API.Services;
 
 namespace MTGCapstone.API.Controllers
@@ -26,12 +28,11 @@ namespace MTGCapstone.API.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Card>>> GetCardsAsync([FromQuery] CardResourceParameters cardResourceParameters)
         {
-            var cards = await _cardService.GetCardsAsync(cardResourceParameters);
-            //TODO: Figure out why GetCardsAsync isn't happy now.  
-            if (cards == null || cards.Count == 0)
-                return NotFound();
+            Response<List<CardVMForDeck>> response = await _cardService.GetCardsAsync(cardResourceParameters);
 
-            return Ok(cards);//TODO: Create CardVM and change to that anywhere I return a card.
+            return Ok(response.Value);
+            //TODO: Create CardVM that isn't for the deck,
+            //probably don't need to return a full CareVMForDeck.
         }
 
         // GET: api/Cards/5
@@ -39,7 +40,7 @@ namespace MTGCapstone.API.Controllers
         public async Task<ActionResult<Card>> GetCard(int id)
         {
 
-            var card = await _cardService.GetCardAsync(id);
+            Card? card = await _cardService.GetCardAsync(id);
 
             if (card is null)
             {

@@ -21,7 +21,7 @@ namespace MTGCapstone.API.Controllers
         [HttpGet]
         public async Task<IActionResult> Test()
         {
-            var cancellationSource = new CancellationTokenSource();
+            CancellationTokenSource cancellationSource = new CancellationTokenSource();
             
             //await _scryfallApiService.GetBulkDataSourcesAsync(cancellationSource.Token);
             await _scryfallApiService.ImportRulingsAsync(cancellationSource.Token);

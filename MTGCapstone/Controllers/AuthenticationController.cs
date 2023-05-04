@@ -47,11 +47,11 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(ModelState);
             }
 
-            var tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
+            TokenResponse tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
             if (!tokenResponse.Success)
                 return StatusCode(500);
 
-            //TODO: Consider if registering should log user in or prompt them to confirm email.
+            //TODO: Remember that I need to change this to return the email link to confirm email account.
             return Ok(tokenResponse);
         }
 
@@ -75,14 +75,15 @@ namespace MTGCapstone.API.Controllers
         {
             if (!ModelState.IsValid)
             {
-                //TODO: fix this to check modelstate once I have a DTO setup
                 return BadRequest();
             }
 
-            var response = await _authService.RevokeAsync(refreshToken);
+            TokenResponse response = await _authService.RevokeAsync(refreshToken);
 
             if (!response.Success)
+            {
                 return BadRequest(response.Error);
+            }
 
             return NoContent();
         }
@@ -91,11 +92,11 @@ namespace MTGCapstone.API.Controllers
         public async Task<IActionResult> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO userName)
         {
 
-            var id = User.Claims.FirstOrDefault(c => c.Type == "sub");
+            System.Security.Claims.Claim? id = User.Claims.FirstOrDefault(c => c.Type == "sub");
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var response = await _authService.ConfirmEmailRequestAsync(userName);
+            TokenResponse response = await _authService.ConfirmEmailRequestAsync(userName);
 
             if (!response.Success)
                 return BadRequest(response.Error);
@@ -109,7 +110,7 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var response = await _authService.ConfirmEmailAsync(confirmEmailDTO);
+            TokenResponse response = await _authService.ConfirmEmailAsync(confirmEmailDTO);
 
             if (!response.Success)
                 return BadRequest(response.Error);
@@ -123,7 +124,7 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var response = await _authService.ChangePasswordRequestAsync(userName);
+            TokenResponse response = await _authService.ChangePasswordRequestAsync(userName);
 
             if (!response.Success)
                 return BadRequest(response.Error);
@@ -138,7 +139,7 @@ namespace MTGCapstone.API.Controllers
             if (!ModelState.IsValid)
                 return BadRequest(ModelState);
 
-            var response = await _authService.ChangePasswordAsync(changePasswordDTO);
+            TokenResponse response = await _authService.ChangePasswordAsync(changePasswordDTO);
 
             if (!response.Success)
                 return BadRequest(response.Error);

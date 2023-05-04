@@ -50,7 +50,7 @@ namespace MTGCapstone.API.Services
             //TODO: Register sends email confirmation with token that will redirect to landing page logged in.
             //Check for existing user with username
             //TODO: add check for user by email
-            var existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
+            User? existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
             if (existingUser is not null)
             {
                 _logger.LogInformation($"Username {existingUser.UserName} already exists");
@@ -65,7 +65,7 @@ namespace MTGCapstone.API.Services
                 return new TokenResponse { Error = result.Error() };
             }
 
-            var response = await ConfirmEmailRequestAsync(new ConfirmEmailRequestDTO { UserName = user.UserName});
+            TokenResponse response = await ConfirmEmailRequestAsync(new ConfirmEmailRequestDTO { UserName = user.UserName});
             if (!response.Success)
             {
                 return response;
@@ -75,7 +75,7 @@ namespace MTGCapstone.API.Services
         }
         public async Task<TokenResponse> LoginAsync(AuthenticationRequestBody authenticationRequestBody)
         {
-            var user = await ValidateUserCredentialsAsync(authenticationRequestBody);
+            User? user = await ValidateUserCredentialsAsync(authenticationRequestBody);
 
             if (user is null)
                 return new TokenResponse { Error = "Invalid user credentials." };
@@ -93,7 +93,7 @@ namespace MTGCapstone.API.Services
             }
 
             //Validate Refresh Token
-            var oldRefreshToken = _capstoneDbContext.RefreshTokens
+            RefreshToken? oldRefreshToken = _capstoneDbContext.RefreshTokens
                 .FirstOrDefault(rf => rf.Token == refreshTokenDTO.RefreshToken);
 
             if (oldRefreshToken is null)
@@ -116,7 +116,7 @@ namespace MTGCapstone.API.Services
             {
                 return new TokenResponse { Error = "Revoked refresh token" };
             }
-            var user = await _capstoneDbContext.Users.FindAsync(oldRefreshToken.UserId);
+            User? user = await _capstoneDbContext.Users.FindAsync(oldRefreshToken.UserId);
             if (user is null)
             {
                 return new TokenResponse { Error = "User not found" };
@@ -132,7 +132,7 @@ namespace MTGCapstone.API.Services
         }
         public async Task<TokenResponse> RevokeAsync(RefreshTokenToRevokeDTO refreshToken)
         {
-            var tokenToRevoke = await _capstoneDbContext.RefreshTokens
+            RefreshToken? tokenToRevoke = await _capstoneDbContext.RefreshTokens
                 .FirstOrDefaultAsync(rf => rf.Token == refreshToken.RefreshToken);
             if (tokenToRevoke is null)
                 return new TokenResponse { Error = "Invalid refresh token" };
@@ -145,14 +145,14 @@ namespace MTGCapstone.API.Services
         }
         public async Task<TokenResponse> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO)
         {
-            var user = await _userManager.FindByNameAsync(confirmEmailRequestDTO.UserName);
+            User user = await _userManager.FindByNameAsync(confirmEmailRequestDTO.UserName);
             if (user == null)
                 return new TokenResponse { Error = "User not found" };
 
-            var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+            string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             string callbackUrl = "https://localhost:7277/authentication/confirm-email";
 
-            var response = await SendTokenInEmailAsync(token, user, callbackUrl);
+            TokenResponse response = await SendTokenInEmailAsync(token, user, callbackUrl);
             if (!response.Success)
             {
                 return response;
@@ -161,12 +161,12 @@ namespace MTGCapstone.API.Services
         }
         public async Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
         {
-            var user = await _userManager.FindByEmailAsync(confirmEmailDTO.Email);
+            User user = await _userManager.FindByEmailAsync(confirmEmailDTO.Email);
             if (user == null)
                 return new TokenResponse { Error = "User not found" };
 
-            
-            var result = await _userManager.ConfirmEmailAsync(user, confirmEmailDTO.token);
+
+            IdentityResult result = await _userManager.ConfirmEmailAsync(user, confirmEmailDTO.token);
 
             if (!result.Succeeded)
                 return new TokenResponse { Error = result.Error() };
@@ -175,14 +175,14 @@ namespace MTGCapstone.API.Services
         }
         public async Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName)
         {
-            var user = await _userManager.FindByNameAsync(userName.UserName);
+            User? user = await _userManager.FindByNameAsync(userName.UserName);
             if (user is null)
                 return new TokenResponse { Error = "User not found" };
             
             string resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
             string callbackUrl = "https://localhost:7277/authentication/change-password";
 
-            var response = await SendTokenInEmailAsync(resetToken, user, callbackUrl);
+            TokenResponse response = await SendTokenInEmailAsync(resetToken, user, callbackUrl);
             if (!response.Success)
             {
                 return response;
@@ -192,11 +192,11 @@ namespace MTGCapstone.API.Services
         }
         public async Task<TokenResponse> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO)
         {
-            var user = await _userManager.FindByEmailAsync(changePasswordDTO.Email);
+            User user = await _userManager.FindByEmailAsync(changePasswordDTO.Email);
             if (user == null)
                 return new TokenResponse { Error = "User not found" };
 
-            var result = await _userManager.ResetPasswordAsync(user, changePasswordDTO.token, changePasswordDTO.Password);
+            IdentityResult result = await _userManager.ResetPasswordAsync(user, changePasswordDTO.token, changePasswordDTO.Password);
 
             if (!result.Succeeded)
                 return new TokenResponse { Error = result.Error() };
@@ -213,7 +213,7 @@ namespace MTGCapstone.API.Services
             string emailBody = $"<a href=\"{resetTokenUrl}\" >Reset Password</a>";
 
             //TODO: local host is for testing.  Change this to your email server.
-            var sender = new SmtpSender(() => new SmtpClient("localhost")
+            SmtpSender sender = new SmtpSender(() => new SmtpClient("localhost")
             {
                 EnableSsl = false, //For testing
                 DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory,
@@ -222,7 +222,7 @@ namespace MTGCapstone.API.Services
 
             Email.DefaultSender = sender;
 
-            var email = await Email
+            FluentEmail.Core.Models.SendResponse email = await Email
                 .From("noreply@MTGCapstone.com")
                 .To(user.Email, user.UserName)
                 .Subject("CapstoneMTG Password Reset")
@@ -239,7 +239,7 @@ namespace MTGCapstone.API.Services
         }
         private async Task<User?> ValidateUserCredentialsAsync(AuthenticationRequestBody authenticationRequestBody)
         {
-            var user = await _userManager.FindByNameAsync(authenticationRequestBody.UserName);
+            User user = await _userManager.FindByNameAsync(authenticationRequestBody.UserName);
 
             if (user == null)
             {
@@ -281,17 +281,17 @@ namespace MTGCapstone.API.Services
         private async Task<List<Claim>> CreateClaimsAsync(User user)
         {
             //Make the claims
-            var claimsForToken = new List<Claim>
+            List<Claim> claimsForToken = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
-            var userClaims = await _userManager.GetClaimsAsync(user);
+            IList<Claim> userClaims = await _userManager.GetClaimsAsync(user);
             claimsForToken.AddRange(userClaims);
 
             //Add roles to the claims
-            var userRoles = await _userManager.GetRolesAsync(user);
-            foreach (var userRole in userRoles)
+            IList<string> userRoles = await _userManager.GetRolesAsync(user);
+            foreach (string? userRole in userRoles)
             {
                 claimsForToken.Add(new Claim(ClaimTypes.Role, userRole));
                 IdentityRole<int> role = await _roleManager.FindByNameAsync(userRole);
@@ -316,17 +316,17 @@ namespace MTGCapstone.API.Services
         private SigningCredentials CreateSigningCredentials()
         {
             //Create Key and Credentials
-            var securityKey = new SymmetricSecurityKey(
+            SymmetricSecurityKey securityKey = new SymmetricSecurityKey(
                 Encoding.ASCII.GetBytes(_configuration["Authentication:SecretForKey"]));
 
-            var signingCredentials = new SigningCredentials(securityKey,
+            SigningCredentials signingCredentials = new SigningCredentials(securityKey,
                 SecurityAlgorithms.HmacSha256);
             return signingCredentials;
         }
         private async Task<string> CreateRefreshTokenAsync(User user, string jwtId)
         {
-            var passwordHasher = new PasswordHasher<User>();
-            var refreshToken = new RefreshToken()
+            PasswordHasher<User> passwordHasher = new PasswordHasher<User>();
+            RefreshToken refreshToken = new RefreshToken()
             {
                 Token = passwordHasher.HashPassword(user, Guid.NewGuid().ToString()),
                 CreatedAt = DateTime.UtcNow,

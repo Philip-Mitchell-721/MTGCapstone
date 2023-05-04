@@ -9,19 +9,21 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
     public interface IDeckService
     {
         //Decks
-        Task<Response<List<DeckVM>?>> GetDecksAsync(GetDecksRequest getDecksRequest);
-        Task<DeckForUpdateResponse> GetDeckForUpdateDTOAsync(int userId, int id);
+        Task<Response<List<DeckVM>>> GetDecksAsync(GetDecksRequest getDecksRequest);
+        Task<Response<List<DeckVM>>> GetMyDecksAsync(int userId, PersonalDecksRequest decksRequest);
+        Task<Response<DeckForUpdateDto>> GetDeckForPatchDTOAsync(int userId, int id);
         Task<DeckVM?> GetDeckVMAsync(int id);
-        Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckDTOForCreation deckDTOForCreation);
-        Task<DeckResponse> UpdateDeck(int userId, int deckId, DeckForUpdateDTO deckForUpdateDTO);
-        Task<Response<Deck>> DeleteDeck(int userId, int deckId);
-        Task<Response<Deck>> GetValidEditableDeck(int userId, int deckId);
+        Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckForCreationDto deckDTOForCreation);
+        Task<Response<Deck>> UpdateDeckAsync(int userId, int deckId, DeckForUpdateDto deckForUpdateDTO);
+        Task<Response<Deck>> DeleteDeckAsync(int userId, int deckId);
+        Task<Response<Deck>> GetValidEditableDeckAsync(int userId, int deckId);
+        Task<Response<DeckVM>> GetDeckWithCardsAsync(int deckId);
         Task<bool> DeckExistsAsync(int deckId);
 
 
 
     //DeckCards
-        Task<List<Card>> GetCardsForDeck(int deckId);
+        //Task<List<Card>> GetCardsForDeck(int deckId);
         Task<DeckCard?> GetDeckCardByIdAsync(int deckCardId);
         Task<DeckCard> AddCardToDeckAsync(int deckId, int cardId);
         Task UpdateDeckCardPrintingAsync(int deckCardId, int cardId);

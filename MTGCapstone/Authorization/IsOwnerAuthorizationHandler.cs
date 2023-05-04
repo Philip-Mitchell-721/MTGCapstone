@@ -9,14 +9,14 @@ namespace MTGCapstone.API.Authorization
         //For resource based policies, make sure that AuthorizationHandler<Requirement, resource> is used.
         protected override Task HandleRequirementAsync(AuthorizationHandlerContext context, IsOwnerRequirement requirement, Deck resource)
         {
-            
-            var claim = context.User.FindFirst(JwtRegisteredClaimNames.Sub);
+
+            System.Security.Claims.Claim? claim = context.User.FindFirst(JwtRegisteredClaimNames.Sub);
             if (claim == null) 
             { 
                 return Task.CompletedTask; 
             }
 
-            var userId = claim.Value;
+            string userId = claim.Value;
 
             if (userId == resource.UserId.ToString())
             {

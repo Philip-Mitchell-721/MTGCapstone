@@ -21,7 +21,7 @@ namespace MTGCapstone.API.Services
         public Dictionary<string, PropertyMappingValue> GetPropertyMapping<TSource, TDestination>()
         {
             // get matching mapping
-            var matchingMapping = _propertyMappings
+            IEnumerable<PropertyMapping<TSource, TDestination>> matchingMapping = _propertyMappings
                 .OfType<PropertyMapping<TSource, TDestination>>();
 
             if (matchingMapping.Count() == 1)
