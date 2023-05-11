@@ -13,7 +13,7 @@ using System.Security.Claims;
 
 namespace MTGCapstone.API.Controllers
 {
-    [Route("api/Decks")]
+    [Route("api/[controller]")]
     [Authorize]
     [ApiController]
     public class DecksController : ControllerBase
@@ -30,7 +30,7 @@ namespace MTGCapstone.API.Controllers
                 ?? throw new ArgumentNullException(nameof(logger));
         }
 
-        
+        [AllowAnonymous]
         [HttpGet]
         public async Task<IActionResult> SearchDecks([FromQuery] GetDecksRequest getDecksRequest)
         {
@@ -39,6 +39,7 @@ namespace MTGCapstone.API.Controllers
             return Ok(response);
         }
 
+        
         [HttpGet("Personal")]
         public async Task<IActionResult> GetMyDecks([FromQuery] PersonalDecksRequest decksRequest)
         {
@@ -47,18 +48,20 @@ namespace MTGCapstone.API.Controllers
             return Ok(response);
         }
 
+        [AllowAnonymous]
         [HttpGet("{deckId}", Name = "GetDeckById")]
         public async Task<ActionResult<DeckVM>> GetDeck(int deckId)
         {
 
             Response<DeckVM> response = await _deckService.GetDeckWithCardsAsync(deckId);
-            if (!response.Success || response.Value is null)
+            if (!response.Success)
             {
                 return response.StatusCode switch
                 {
-                    400 => NotFound(),
-                    403 => Forbid(),
-                    _ => StatusCode(500)
+                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
                 };
             }
             return Ok(response);
@@ -75,14 +78,8 @@ namespace MTGCapstone.API.Controllers
             Response<DeckVM> response = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
             if (!response.Success)
             {
-                return response.StatusCode switch
-                {
-                    400 => NotFound(),
-                    403 => Forbid(),
-                    _ => StatusCode(500)
-                };
+                return BadRequest(response.Errors);
             }
-            //ASK: Is this what I should return here or should I just return my response with the new deckVM as the value?
             return CreatedAtRoute("GetDeckById", new { id = response.Value!.Id }, response.Value);
         }
 
@@ -96,13 +93,14 @@ namespace MTGCapstone.API.Controllers
 
             var response = await _deckService.UpdateDeckAsync(User.Id(), deckId, deckForUpdateDTO);
 
-            if (!response.Success || response.Value is null)
+            if (!response.Success)
             {
                 return response.StatusCode switch
                 {
-                    400 => NotFound(),
-                    403 => Forbid(),
-                    _ => StatusCode(500)
+                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
                 };
             }
             return NoContent();
@@ -111,28 +109,28 @@ namespace MTGCapstone.API.Controllers
         [HttpPatch("{deckId}")]
         public async Task<IActionResult> PatchDeck(int deckId, [FromBody] JsonPatchDocument<DeckForUpdateDto> patchDoc)
         {
-            Response<DeckForUpdateDto> updateResponse = await _deckService.GetDeckForPatchDTOAsync(User.Id(), deckId);
+            Response<DeckForUpdateDto> response = await _deckService.GetDeckForPatchDTOAsync(User.Id(), deckId);
 
-            if (!updateResponse.Success || updateResponse.Value is null) 
+            if (!response.Success || response.Value is null)
             {
-                return updateResponse.StatusCode switch
+                return response.StatusCode switch
                 {
-                    400 => NotFound(),
-                    403 => Forbid(),
-                    _ => StatusCode(500)
+                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
                 };
             }
-            
-            patchDoc.ApplyTo(updateResponse.Value, ModelState);
+
+            patchDoc.ApplyTo(response.Value, ModelState);
             //The TryValidateModel will check the passed in model.
             //If invalid, it will add the errors to the ModelState.
-            if (!ModelState.IsValid && !TryValidateModel(updateResponse.Value))
+            if (!ModelState.IsValid && !TryValidateModel(response.Value))
             {
                 return BadRequest(ModelState);
             }
-           
 
-            await _deckService.UpdateDeckAsync(User.Id(), deckId, updateResponse.Value);
+            await _deckService.UpdateDeckAsync(User.Id(), deckId, response.Value);
             return NoContent();
         }
 
@@ -141,13 +139,14 @@ namespace MTGCapstone.API.Controllers
         {
             var response = await _deckService.DeleteDeckAsync(User.Id(), deckId);
 
-            if (!response.Success || response.Value is null)
+            if (!response.Success)
             {
                 return response.StatusCode switch
                 {
-                    400 => NotFound(),
-                    403 => Forbid(),
-                    _ => StatusCode(500)
+                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
                 };
             }
             return NoContent();
@@ -184,27 +183,22 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("{deckId}/Cards")]
-        public async Task<IActionResult> AddCardToDeck(int deckId, [FromBody] int cardId)
+        public async Task<IActionResult> AddNewCardToDeck(int deckId, [FromBody] int cardId)
         {
-            //TODO: Add authorization to edit this deck.
-            //TODO: Create Response<T> that service will return.  
-            //TODO: move DeckExistsAsync and CardExistsAsync into AddCardToDeckAsync. 
-            //if (!await _deckService.DeckExistsAsync(deckId))
-            //    return NotFound($"No deck found with Id:{deckId}.");
+            Response<CardVMForDeck> response = await _deckService.AddNewCardToDeckAsync(User.Id(), deckId, cardId);
 
-            //if (!await _deckService.CardExistsAsync(cardId))
-            //    return NotFound($"No card found with Id:{cardId}.");
+            if (!response.Success || response.Value is null)
+            {
+                return response.StatusCode switch
+                {
+                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                };
+            }
 
-            DeckCard deckCard = await _deckService.AddCardToDeckAsync(deckId, cardId);
-
-            //var response = await _deckService.AddCardToDeckAsync(deckId, cardId);
-            //return response.status switch
-            //{
-
-            //}
-
-
-            return CreatedAtRoute("GetDeckCardById", new { deckId = deckCard.DeckId, deckCardId = deckCard.Id }, deckCard);
+            return CreatedAtRoute("GetDeckCardById", new { deckId, deckCardId = response.Value.DeckCardId }, response.Value);
         }
 
         [HttpPut("{deckId}/Cards/{deckCardId}")]

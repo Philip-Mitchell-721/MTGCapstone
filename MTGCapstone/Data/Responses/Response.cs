@@ -2,7 +2,7 @@
 {
     public class Response<T>
     {
-        public int StatusCode { get; set; }
+        public ResponseStatusCodes? StatusCode { get; set; }
         public string? Message { get; set; }
         public List<string> Errors { get; set; } = new();
         public T? Value { get; set; }

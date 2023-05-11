@@ -30,7 +30,7 @@ namespace MTGCapstone.API.Services
 
         public async Task<Response<List<CardVMForDeck>>> GetCardsAsync(CardResourceParameters cardResourceParameters)
         {
-            IQueryable<Card> collection = _context.Cards as IQueryable<Card>;
+            IQueryable<Card> collection = _context.Cards;
 
 
             if (!string.IsNullOrWhiteSpace(cardResourceParameters.Name))
@@ -67,10 +67,10 @@ namespace MTGCapstone.API.Services
                     && c.EdhrecRank != 0);
 
             //ASK:TODO: No idea why the F this won't work...
-            IOrderedQueryable<Card> collectionToReturn = collection
+            IQueryable<Card> collectionToReturn = collection
                 .GroupBy(c => c.OracleId)
-                .Select(c => c.First())
-                .OrderBy(c => c.EdhrecRank);
+                .Select(c => c.First());
+                //.OrderBy(c => c.EdhrecRank);
 
 
             //var collectionToReturn = collection

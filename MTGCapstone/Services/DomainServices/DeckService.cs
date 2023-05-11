@@ -7,8 +7,11 @@ using MTGCapstone.API.Data.ViewModels;
 using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Extentions.LoggerMessages;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
+using Newtonsoft.Json.Linq;
 using System.IdentityModel.Tokens.Jwt;
+using System.Linq.Dynamic.Core;
 using System.Net;
+using System.Reflection;
 using System.Security.Claims;
 using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
@@ -19,6 +22,13 @@ namespace MTGCapstone.API.Services.DomainServices
         private readonly CapstoneDbContext _capstoneDbContext;
         private readonly IMapper _mapper;
         private readonly ILogger<DeckService> _logger;
+
+        private static List<string> GetFormats()
+        {
+            return new List<string>() { "standard", "future", "historic", "gladiator", "pioneer", "explorer", "modern", 
+            "legacy", "pauper", "vintage", "penny", "commander", "brawl", "historicbrawl", "alchemy", "paupercommander",
+            "duel", "oldschool", "premodern"};
+        }
 
         public DeckService(CapstoneDbContext capstoneDbContext,
             IMapper mapper,
@@ -41,6 +51,12 @@ namespace MTGCapstone.API.Services.DomainServices
         {
             IQueryable<Deck> collection = _capstoneDbContext.Decks;
 
+            if (getDecksRequest.UserName is not null)
+            {
+                collection = collection.Where(deck => deck.User != null 
+                                                   && deck.User.UserName.ToLower() == getDecksRequest.UserName.ToLower());
+            }
+
             if (getDecksRequest.Format is not null)
             {
                 collection = collection.Where(deck => deck.Format == getDecksRequest.Format);
@@ -57,11 +73,10 @@ namespace MTGCapstone.API.Services.DomainServices
                                                                                 && dcdc.DeckCard.Card.Name.ToLower() == getDecksRequest.Commander.ToLower())));
 
             }
-            getDecksRequest.OrderBy ??= "Views";
             if (getDecksRequest.OrderBy != "Views")
             {
                 DeckVM deckVM = new();
-                System.Reflection.PropertyInfo? orderByInfo = deckVM.GetType().GetProperty(getDecksRequest.OrderBy);
+                PropertyInfo? orderByInfo = deckVM.GetType().GetProperty(getDecksRequest.OrderBy);
                 if (orderByInfo is not null)
                 {
 
@@ -81,7 +96,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Take(getDecksRequest.PageSize)
                 .ToListAsync();
 
-            Response<List<DeckVM>> response = new Response<List<DeckVM>?>()
+            Response<List<DeckVM>> response = new()
             {
                 Value = _mapper.Map<List<DeckVM>>(collectionToReturn)
             };
@@ -90,16 +105,28 @@ namespace MTGCapstone.API.Services.DomainServices
         }
         public async Task<Response<List<DeckVM>>> GetMyDecksAsync(int userId, PersonalDecksRequest decksRequest)
         {
+            IQueryable<Deck> collection = _capstoneDbContext.Decks.Where(d => d.UserId == userId);
+            if (!string.IsNullOrWhiteSpace(decksRequest.Search))
+            {
+                decksRequest.Search.Trim();
 
-            List<Deck> collectionToReturn = await _capstoneDbContext.Decks
-                .Where(d => d.UserId == userId)
+                collection = collection.Where(d => (!string.IsNullOrWhiteSpace(d.Name) && d.Name.Contains(decksRequest.Search))
+                    || d.DeckCards.Any(dc => dc.Card!.Name!.Contains(decksRequest.Search)));
+            }
+            if (!string.IsNullOrWhiteSpace(decksRequest.Format))
+            {
+                decksRequest.Format.Trim();
+                collection = collection.Where(d => !string.IsNullOrWhiteSpace(d.Format) && d.Format.Contains(decksRequest.Format));
+            }
+            //TODO: Add OrderBy options here.
+            List<Deck> collectionToReturn = await collection
                 .OrderBy(d => d.CreatedAt) //TODO: make this orderby last updated once all deck edits updated last updated property.
-                .Skip(decksRequest.PageSize * (decksRequest.PageNumber - 1))
-                .Take(decksRequest.PageSize)
+                .Skip(20 * (decksRequest.PageNumber - 1))
+                .Take(20)
                 .ToListAsync();
 
             
-            return new Response<List<DeckVM>>() { Success = true, StatusCode = 200, Value = _mapper.Map<List<DeckVM>>(collectionToReturn) };
+            return new Response<List<DeckVM>>() { Success = true, StatusCode = ResponseStatusCodes.Ok, Value = _mapper.Map<List<DeckVM>>(collectionToReturn) };
 
         }
         public async Task<Response<DeckForUpdateDto>> GetDeckForPatchDTOAsync(int userId, int deckId)
@@ -108,6 +135,7 @@ namespace MTGCapstone.API.Services.DomainServices
 
             //TODO: Find a way to map Response<T> with automapper.
             //Is it simply adding mapping profile from Response<Deck> to Response<DeckForupdateDTO>?
+            
             Response<DeckForUpdateDto> updateResponse = new()
             {
                 StatusCode = response.StatusCode,
@@ -116,11 +144,6 @@ namespace MTGCapstone.API.Services.DomainServices
                 Value = _mapper.Map<DeckForUpdateDto>(response.Value),
                 Success = response.Success
             };
-                                
-            if (!response.Success)
-            {
-                return updateResponse;
-            }
             
             return updateResponse;
         }
@@ -133,6 +156,11 @@ namespace MTGCapstone.API.Services.DomainServices
         }
         public async Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckForCreationDto deckDTOForCreation)
         {
+            List<string> _formats = GetFormats();
+            if (!_formats.Contains(deckDTOForCreation.Format!.ToLower()))
+            {
+                return new Response<DeckVM> { StatusCode = ResponseStatusCodes.BadRequest, Errors = { "Format doesn't exist." } };
+            }
             Deck deck = _mapper.Map<Deck>(deckDTOForCreation);
             deck.UserId = userId;
             deck.CreatedAt = DateTime.UtcNow;
@@ -140,19 +168,19 @@ namespace MTGCapstone.API.Services.DomainServices
             _capstoneDbContext.Decks.Add(deck);
             await _capstoneDbContext.SaveChangesAsync();
             
-            return new Response<DeckVM> { StatusCode = 201, Success = true, Value = _mapper.Map<DeckVM>(deck) };
+            return new Response<DeckVM> { StatusCode = ResponseStatusCodes.Created, Success = true, Value = _mapper.Map<DeckVM>(deck) };
         }
         public async Task<Response<Deck>> UpdateDeckAsync(int userId, int deckId, DeckForUpdateDto deckForUpdateDTO)
         {
-            var response = await GetValidEditableDeckAsync(userId, deckId);
-            if (!response.Success || response.Value is null)
+            Response<Deck> response = await GetValidEditableDeckAsync(userId, deckId);
+            if (!response.Success)
             {
                 return response;
             }
             
             _mapper.Map(deckForUpdateDTO, response.Value);
 
-            response.Value.LastEditedAt = DateTime.UtcNow;
+            response.Value!.LastEditedAt = DateTime.UtcNow;
 
             //TODO: Make sure that the response.Value (deck) is still tracked, and therefore saved/updated.
             await _capstoneDbContext.SaveChangesAsync();
@@ -166,7 +194,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 return response;
             }
             
-            _capstoneDbContext.Decks.Remove(response.Value);
+            _capstoneDbContext.Decks.Remove(response.Value!);
             await _capstoneDbContext.SaveChangesAsync();
             
             return response;
@@ -177,7 +205,7 @@ namespace MTGCapstone.API.Services.DomainServices
             response.Value = await _capstoneDbContext.Decks.FindAsync(deckId);
             if (response.Value == null)
             {
-                response.StatusCode = 404;
+                response.StatusCode = (ResponseStatusCodes)404;
                 return response;
             }
             return response;
@@ -196,133 +224,198 @@ namespace MTGCapstone.API.Services.DomainServices
             //get deck with deckcards
             Deck? deck = await _capstoneDbContext.Decks
                 .Include(d => d.DeckCards).ThenInclude(dc => dc.DeckCategories)
-                //TODO: figure out why .theninclude deckcategories is a list
                 .Include(d => d.DeckCategories)
-                //.ThenInclude(dc => dc.Card)
-                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card.ImageUris)
-                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card.ColorIdentity)
-                //.Include(d => d.DeckCards).ThenInclude(dc => dc.Card).ThenInclude(c => c.Colors).ThenInclude(cc => cc.ColorsLookUp)
-                ////.Include(d => d.DeckCards).ThenInclude()
                 .FirstOrDefaultAsync(d =>  d.Id == deckId);
 
             if (deck is null)
             {
-                return new Response<DeckVM>()  { Errors = { "Deck not found." }, StatusCode = 404 };
+                return new Response<DeckVM>() { Errors = { "Deck not found." }, StatusCode = ResponseStatusCodes.NotFound };
             }
 
             //get cards with related data
             IEnumerable<int?> cardIds = deck.DeckCards.Select(dc => dc.CardId);
             List<Card> cards = _capstoneDbContext.Cards
                 .Include(card => card.ImageUris)
-                .Include(card => card.Colors)//.ThenInclude(c => c.ColorsLookUp)
-                //.Include(card => card.ColorIndicator)//.ThenInclude(c => c.ColorIndicatorLookUp)
-                .Include(card => card.ColorIdentity)//.ThenInclude(c => c.ColorIdentityLookUp)
-                .Include(card => card.Keywords)//.ThenInclude(c => c.KeywordsLookUp)
+                .Include(card => card.Colors)
+                .Include(card => card.ColorIdentity)
+                .Include(card => card.Keywords)
                 .Include(card => card.Legalities)                               
                 .Include(card => card.Prices)                                   
                 .Include(card => card.RelatedUris)                              
                 .Include(card => card.PurchaseUris)                             
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
-                .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)//.ThenInclude(c => c.ColorsLookUp)
-                //.Include(card => card.CardFaces).ThenInclude(cf => cf.ColorIndicator)//.ThenInclude(c => c.ColorIndicatorLookUp)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
                 .Where(c => cardIds.Contains(c.Id)).ToList();
 
             //map the list of cards to list of CardVMForDeck
             List<CardVMForDeck> cardVMs = new();
-            //region is mapping
-            #region 
             foreach (Card card in cards)
             {
-                CardVMForDeck cardVM = _mapper.Map<CardVMForDeck>(card);
                 DeckCard deckCard = deck.DeckCards.FirstOrDefault(dc => dc.CardId == card.Id)!;
-                cardVM.DeckCardId = deckCard.Id;
-                cardVM.Quantity = deckCard.Quantity;
-                cardVM.Board = deckCard.Board;
-
-                foreach (DeckCategoryDeckCard category in deckCard.DeckCategories)
-                {
-                    cardVM.Categories.Add(category.DeckCategory.Name);
-                }
-                //Continue: working on getting the quantity for the card VM from the list of deckcategorydeckcards.
-                //Consider changing deckcards to have quantity and boards on it.
-
-                foreach (CardColorsLookUp color in card.Colors)
-                {
-                    if (true)
-                    {
-                        //TODO: Add null checks or decide to add the null exclamation 
-                    }
-                    cardVM.Colors.Add(color!.ColorsLookUp!.Value!);
-                }
-                foreach (CardColorIdentityLookUp color in card.ColorIdentity)
-                {
-                    cardVM.ColorIdentity.Add(color.ColorIdentityLookUp.Value);
-                }
-                foreach (CardKeywordsLookUp color in card.Keywords)
-                {
-                    cardVM.Keywords.Add(color.KeywordsLookUp.Value);
-                }
-                if (card.CardFaces.Any())
-                {
-                    foreach (CardFace face in card.CardFaces)
-                    {
-                        CardFaceVM cardFaceVM = _mapper.Map<CardFaceVM>(face);
-                        foreach (CardColorsLookUp color in face.Colors)
-                        {
-                            cardFaceVM.Colors.Add(color.ColorsLookUp.Value);
-                        }
-                        cardVM.CardFaces.Add(cardFaceVM);
-                    }
-                }
+                CardVMForDeck cardVM = CreateCardVMForDeck(card, deckCard);
                 cardVMs.Add(cardVM);
             }
-            #endregion
+            
 
             DeckVM deckVM = _mapper.Map<DeckVM>(deck);
             deckVM.Cards = cardVMs;
 
-            return new Response<DeckVM>() { Success = true, StatusCode = 200, Value = deckVM };
+            return new Response<DeckVM>() { Success = true, StatusCode = ResponseStatusCodes.Ok, Value = deckVM };
+        }
+
+        private CardVMForDeck CreateCardVMForDeck(Card card, DeckCard deckCard)
+        {
+            CardVMForDeck cardVM = _mapper.Map<CardVMForDeck>(card);
+            cardVM.DeckCardId = deckCard.Id;
+            cardVM.Quantity = deckCard.Quantity;
+            cardVM.Board = deckCard.Board;
+
+            foreach (DeckCategoryDeckCard category in deckCard.DeckCategories)
+            {
+                cardVM.Categories.Add(category.DeckCategory.Name);
+            }
+            foreach (CardColorsLookUp color in card.Colors)
+            {
+                if (true)
+                {
+                    //TODO: Add null checks or decide to add the null exclamation 
+                }
+                cardVM.Colors.Add(color!.ColorsLookUp!.Value!);
+            }
+            foreach (CardColorIdentityLookUp color in card.ColorIdentity)
+            {
+                cardVM.ColorIdentity.Add(color.ColorIdentityLookUp.Value);
+            }
+            foreach (CardKeywordsLookUp color in card.Keywords)
+            {
+                cardVM.Keywords.Add(color.KeywordsLookUp.Value);
+            }
+            if (card.CardFaces.Any())
+            {
+                foreach (CardFace face in card.CardFaces)
+                {
+                    CardFaceVM cardFaceVM = _mapper.Map<CardFaceVM>(face);
+                    foreach (CardColorsLookUp color in face.Colors)
+                    {
+                        cardFaceVM.Colors.Add(color.ColorsLookUp.Value);
+                    }
+                    cardVM.CardFaces.Add(cardFaceVM);
+                }
+            }
+
+            return cardVM;
         }
 
         public async Task<Response<Deck>> GetValidEditableDeckAsync(int userId, int deckId)
         {
             Response<Deck> response = new();
-            response.Value = await _capstoneDbContext.Decks.FindAsync(deckId);
-            if (response.Value is null)
+            Deck? deck = await _capstoneDbContext.Decks.FindAsync(deckId);
+            if (deck is null)
             {
-                response.StatusCode = 404;
+                response.Errors.Add("Deck not found.");
+                response.StatusCode = ResponseStatusCodes.NotFound;
                 return response;
             }
-            if (response.Value.UserId != userId)
+            if (deck.UserId != userId)
             {
-                response.StatusCode = 403;
+                response.Errors.Add("Denied permission to edit this deck.");
+                response.StatusCode = ResponseStatusCodes.Forbidden;
                 return response;
             }
+            response.Value = deck;
             response.Success = true;
             
             return response;
         }
+        public async Task<Response<Deck>> GetValidEditableDeckWithDeckCardsAsync(int userId, int deckId)
+        {
+            Response<Deck> response = new();
+            Deck? deck = await _capstoneDbContext.Decks.Include(d => d.DeckCards).FirstOrDefaultAsync(d => d.Id == deckId);
+            if (deck is null)
+            {
+                response.Errors.Add("Deck not found.");
+                response.StatusCode = ResponseStatusCodes.NotFound;
+                return response;
+            }
+            if (deck.UserId != userId)
+            {
+                response.Errors.Add("Denied permission to edit this deck.");
+                response.StatusCode = ResponseStatusCodes.Forbidden;
+                return response;
+            }
+            response.Value = deck;
+            response.Success = true;
 
-    //DeckCards
+            return response;
+        }
+
+        //DeckCards
         public async Task<DeckCard?> GetDeckCardByIdAsync(int deckCardId)
         {
             DeckCard? deckCard = await _capstoneDbContext.DeckCards.FindAsync(deckCardId);
 
             return deckCard;
         }
-        public async Task<DeckCard> AddCardToDeckAsync(int deckId, int cardId)
+        public async Task<Response<CardVMForDeck>> AddNewCardToDeckAsync(int userId, int deckId, int cardId)
         {
+            Response<Deck> deckResponse = await GetValidEditableDeckWithDeckCardsAsync(userId, deckId);
+            Response<CardVMForDeck> cardResponse = new()
+            {
+                StatusCode = deckResponse.StatusCode,
+                Message = deckResponse.Message,
+                Errors = deckResponse.Errors,
+                Success = deckResponse.Success
+            };
+            if (!cardResponse.Success)
+            {
+                return cardResponse;
+            }
+            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == cardId);
+            if (deckCard is not null)
+            {
+                cardResponse.Success = false;
+                cardResponse.StatusCode = ResponseStatusCodes.BadRequest;
+                cardResponse.Errors.Add("Card is already in deck.");
+                return cardResponse;
+            }
+            
+            Card? card = _capstoneDbContext.Cards
+                .Include(card => card.ImageUris)
+                .Include(card => card.Colors)
+                .Include(card => card.ColorIdentity)
+                .Include(card => card.Keywords)
+                .Include(card => card.Legalities)
+                .Include(card => card.Prices)
+                .Include(card => card.RelatedUris)
+                .Include(card => card.PurchaseUris)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .FirstOrDefault(c => cardId == c.Id);
+            
+            if (card is null)
+            {
+                cardResponse.StatusCode = ResponseStatusCodes.NotFound;
+                cardResponse.Errors.Add("Card not found.");
+                cardResponse.Success = false;
+                return cardResponse;
+            }
 
-            DeckCard deckCardToAdd = new DeckCard
+            deckCard = new DeckCard
             {
                 CardId = cardId,
-                DeckId = deckId
+                DeckId = deckId,
+                Quantity = 1,
+                Board = DeckBoards.Main //TODO: change this to be configurable 
             };
-
-            _capstoneDbContext.DeckCards.Add(deckCardToAdd);
+            _capstoneDbContext.DeckCards.Add(deckCard);
             await _capstoneDbContext.SaveChangesAsync();
 
-            return deckCardToAdd;
+            CardVMForDeck cardVM = CreateCardVMForDeck(card, deckCard);
+            cardResponse.Value = cardVM;
+
+            cardResponse.Success = true;
+            cardResponse.StatusCode = ResponseStatusCodes.Created;
+            return cardResponse;
         }
         public async Task UpdateDeckCardPrintingAsync(int deckCardId, int cardId)
         {

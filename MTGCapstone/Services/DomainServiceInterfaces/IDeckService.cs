@@ -25,7 +25,7 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
     //DeckCards
         //Task<List<Card>> GetCardsForDeck(int deckId);
         Task<DeckCard?> GetDeckCardByIdAsync(int deckCardId);
-        Task<DeckCard> AddCardToDeckAsync(int deckId, int cardId);
+        Task<Response<CardVMForDeck>> AddNewCardToDeckAsync(int userId, int deckId, int cardId);
         Task UpdateDeckCardPrintingAsync(int deckCardId, int cardId);
         Task DeleteDeckCardAsync(int deckCardId);
         Task<bool> CardExistsAsync(int id);

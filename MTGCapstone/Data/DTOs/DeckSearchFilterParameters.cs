@@ -12,8 +12,9 @@
         }
 
         public string? Search { get; set; }
-        public string? OrderBy { get; set; }
+        public string OrderBy { get; set; } = "Views";
         public string? Format { get; set; }
         public string? Commander { get; set; }
+        public string? UserName { get; set; }
     }
 }

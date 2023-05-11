@@ -9,14 +9,13 @@ using MTGCapstone.API.Services;
 namespace MTGCapstone.API.Controllers
 {
     [Route("api/[controller]")]
-    [Authorize]
     [ApiController]
-    public class CardController : ControllerBase
+    public class CardsController : ControllerBase
     {
         private readonly ICardService _cardService;
-        private readonly ILogger<CardController> _logger;
+        private readonly ILogger<CardsController> _logger;
 
-        public CardController(ICardService cardService, ILogger<CardController> logger)
+        public CardsController(ICardService cardService, ILogger<CardsController> logger)
         {
             _cardService = cardService
                 ?? throw new ArgumentNullException(nameof(cardService));

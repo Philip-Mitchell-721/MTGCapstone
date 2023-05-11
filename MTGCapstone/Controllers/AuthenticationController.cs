@@ -2,8 +2,10 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.Tokens;
 using IAuthService = MTGCapstone.API.Services.IAuthService;
 
@@ -15,26 +17,32 @@ namespace MTGCapstone.API.Controllers
     public class AuthenticationController : ControllerBase
     {
         private readonly IAuthService _authService;
-        
+        private readonly ILogger<AuthenticationController> _logger;
 
-        public AuthenticationController(IAuthService authService)
+        public AuthenticationController(IAuthService authService, ILogger<AuthenticationController> logger)
         {
             _authService = authService 
                 ?? throw new ArgumentNullException(nameof(authService));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<TokenResponse>> Authenticate(
+        public async Task<ActionResult<Response<TokenDTO>>> Authenticate(
             [FromBody] AuthenticationRequestBody authenticationRequestBody)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            TokenResponse tokenResponse = await _authService.LoginAsync(authenticationRequestBody);
+            Response<TokenDTO> tokenResponse = await _authService.LoginAsync(authenticationRequestBody);
 
             if (!tokenResponse.Success)
-                return Unauthorized(tokenResponse.Error);
-            
+            {
+                return Unauthorized(tokenResponse.Errors);
+            }
+            //TODO: Why is the Access Token always the same?
+            //TODO: Is it always the same?  Or was that because I was logging in while that token was still valid?
 
             return Ok(tokenResponse);
         }
@@ -42,29 +50,44 @@ namespace MTGCapstone.API.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register(UserRegistrationModel userRegistrationModel)
         {
+            try
+            {
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
+                //TODO: Finish updating to Response<TokenResponse>, then update interface.
+                Response<TokenDTO> tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
+
+                if (!tokenResponse.Success)
+                {
+                    return StatusCode((int)ResponseStatusCodes.Error, tokenResponse.Errors);
+                }
+                
+                //TODO: Remember that I need to change this to return the email link to confirm email account.
+                return Ok(tokenResponse);
+            }
+            catch(Exception ex)
+            {
+                _logger.LogError(ex, "Error while registering user");
+                return StatusCode(500, "Error while registering user");
+            }
+        }
+
+        [HttpPost("refresh")]
+        public async Task<ActionResult<Response<TokenDTO>>> Refresh(RefreshTokenDTO refreshTokenDTO)
+        {
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
             }
 
-            TokenResponse tokenResponse = await _authService.RegisterUserAsync(userRegistrationModel);
-            if (!tokenResponse.Success)
-                return StatusCode(500);
-
-            //TODO: Remember that I need to change this to return the email link to confirm email account.
-            return Ok(tokenResponse);
-        }
-
-        [HttpPost("refresh")]
-        public async Task<ActionResult<TokenResponse>> Refresh(RefreshTokenDTO refreshTokenDTO)
-        {
-            if (!ModelState.IsValid)
-                return BadRequest(ModelState);
-
-            TokenResponse tokenResponse = await _authService.RefreshTokensAsync(refreshTokenDTO);
+            Response<TokenDTO> tokenResponse = await _authService.RefreshTokensAsync(refreshTokenDTO);
 
             if (!tokenResponse.Success)
-                return Unauthorized(tokenResponse.Error);
+            {
+                return Unauthorized(tokenResponse.Errors);
+            }
             
             return Ok(tokenResponse);
         }
@@ -78,11 +101,11 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest();
             }
 
-            TokenResponse response = await _authService.RevokeAsync(refreshToken);
+            Response<TokenDTO> response = await _authService.RevokeAsync(refreshToken);
 
             if (!response.Success)
             {
-                return BadRequest(response.Error);
+                return BadRequest(response.Errors);
             }
 
             return NoContent();
@@ -94,12 +117,16 @@ namespace MTGCapstone.API.Controllers
 
             System.Security.Claims.Claim? id = User.Claims.FirstOrDefault(c => c.Type == "sub");
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            TokenResponse response = await _authService.ConfirmEmailRequestAsync(userName);
+            Response<TokenDTO> response = await _authService.ConfirmEmailRequestAsync(userName);
 
             if (!response.Success)
-                return BadRequest(response.Error);
+            {
+                return BadRequest(response.Errors);
+            }
 
             return Ok();
         }
@@ -108,12 +135,16 @@ namespace MTGCapstone.API.Controllers
         public async Task<IActionResult> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            TokenResponse response = await _authService.ConfirmEmailAsync(confirmEmailDTO);
+            Response<TokenDTO> response = await _authService.ConfirmEmailAsync(confirmEmailDTO);
 
             if (!response.Success)
-                return BadRequest(response.Error);
+            {
+                return BadRequest(response.Errors);
+            }
 
             return Ok();
         }
@@ -122,27 +153,35 @@ namespace MTGCapstone.API.Controllers
         public async Task<IActionResult> ChangePasswordRequest(ChangePasswordRequestDTO userName)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            TokenResponse response = await _authService.ChangePasswordRequestAsync(userName);
+            Response<TokenDTO> response = await _authService.ChangePasswordRequestAsync(userName);
 
-            if (!response.Success)
-                return BadRequest(response.Error);
+            if (!response.Success || response.Value is null)
+            {
+                return BadRequest(response.Errors);
+            }
             //This is just to see the changePasswordEmailToken
             //remove this and return Ok()
-            return Ok(response.AccessToken);
+            return Ok(response.Value.AccessToken);
         }
 
         [HttpPost("change-password")]
         public async Task<IActionResult> ChangePassword(ChangePasswordDTO changePasswordDTO)
         {
             if (!ModelState.IsValid)
+            {
                 return BadRequest(ModelState);
+            }
 
-            TokenResponse response = await _authService.ChangePasswordAsync(changePasswordDTO);
+            Response<TokenDTO> response = await _authService.ChangePasswordAsync(changePasswordDTO);
 
             if (!response.Success)
-                return BadRequest(response.Error);
+            {
+                return BadRequest(response.Errors);
+            }
 
             return Ok(); 
         }

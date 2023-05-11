@@ -5,14 +5,15 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Build.Framework;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using MTGCapstone.API.Authorization;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Middleware;
 using MTGCapstone.API.Services;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
 using MTGCapstone.API.Services.DomainServices;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
@@ -50,8 +51,8 @@ builder.Services.AddIdentity<User, IdentityRole<int>>(opt =>
 {
     opt.User.RequireUniqueEmail = true;
 })
-.AddEntityFrameworkStores<CapstoneDbContext>();
-
+.AddEntityFrameworkStores<CapstoneDbContext>()
+.AddDefaultTokenProviders();
 
 builder.Services.AddHttpClient<ScryfallClient>()
     .ConfigurePrimaryHttpMessageHandler(handler => new HttpClientHandler()
@@ -61,7 +62,11 @@ builder.Services.AddHttpClient<ScryfallClient>()
 
 
 
-builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+builder.Services.AddAuthentication(opt =>
+    {
+        opt.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        opt.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
     .AddJwtBearer(options =>
     {
         options.SaveToken = true;
@@ -78,15 +83,11 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("GetDeckForOwnerAsync", policy =>
-    {
-        policy.AddRequirements(new IsOwnerRequirement());
-    });
-});
 
-builder.Services.AddSingleton<IAuthorizationHandler, IsOwnerAuthorizationHandler>();
+
+builder.Services.AddAuthorization();
+
+
 
 
 WebApplication app = builder.Build();
@@ -102,12 +103,13 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 app.UseAuthentication();
 
-app.UseMiddleware<LoggingUserScope>();
+//app.UseMiddleware<LoggingUserScope>();
 
 app.UseAuthorization();
 
-app.MapControllers();
+app.MapControllers(); //TODO: Move this back to after auths
 
 app.Run();

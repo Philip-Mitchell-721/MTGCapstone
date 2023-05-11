@@ -4,8 +4,10 @@ using FluentEmail.Smtp;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using MTGCapstone.API.Data.DTOs;
 using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.Tokens;
 using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Extentions;
@@ -45,51 +47,60 @@ namespace MTGCapstone.API.Services
 
 
         //TODO: Need to add logging to Errors.
-        public async Task<TokenResponse> RegisterUserAsync(UserRegistrationModel userRegistrationModel)
+        public async Task<Response<TokenDTO>> RegisterUserAsync(UserRegistrationModel userRegistrationModel)
         {
-            //TODO: Register sends email confirmation with token that will redirect to landing page logged in.
-            //Check for existing user with username
-            //TODO: add check for user by email
-            User? existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
-            if (existingUser is not null)
+            try
             {
-                _logger.LogInformation($"Username {existingUser.UserName} already exists");
-                return new TokenResponse { Error = "User with this Username already exists" };
-            }
+                //TODO: Register sends email confirmation with token that will redirect to landing page logged in.
+                //Check for existing user with username
+                User? existingUser = await _userManager.FindByNameAsync(userRegistrationModel.UserName);
+                if (existingUser is not null)
+                {
+                    _logger.LogInformation($"Username {existingUser.UserName} already exists");
+                    return new Response<TokenDTO> { Errors = { "User with this Username already exists" } };
+                }
 
-            //Create new user
-            User user = _mapper.Map<User>(userRegistrationModel);
-            IdentityResult result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
-            if (!result.Succeeded)
+                //Create new user
+                User user = _mapper.Map<User>(userRegistrationModel);
+                IdentityResult result = await _userManager.CreateAsync(user, userRegistrationModel.Password);
+                if (!result.Succeeded)
+                {
+                    return new Response<TokenDTO> { Errors = result.Errors.Select(e => e.Description).ToList() };
+                }
+
+                Response<TokenDTO> response = await ConfirmEmailRequestAsync(new ConfirmEmailRequestDTO { UserName = user.UserName});
+                if (!response.Success)
+                {
+                    return response;
+                }
+
+                return new Response<TokenDTO> { Success = true };
+
+            }
+            catch(Exception ex)
             {
-                return new TokenResponse { Error = result.Error() };
+                _logger.LogError(ex, "Error during RegisterUserAsync");
+                return new Response<TokenDTO> { StatusCode = ResponseStatusCodes.Error, Errors = { "Error during RegisterUserAsync" } };
             }
-
-            TokenResponse response = await ConfirmEmailRequestAsync(new ConfirmEmailRequestDTO { UserName = user.UserName});
-            if (!response.Success)
-            {
-                return response;
-            }
-
-            return new TokenResponse { Success = true };
         }
-        public async Task<TokenResponse> LoginAsync(AuthenticationRequestBody authenticationRequestBody)
+        public async Task<Response<TokenDTO>> LoginAsync(AuthenticationRequestBody authenticationRequestBody)
         {
             User? user = await ValidateUserCredentialsAsync(authenticationRequestBody);
 
             if (user is null)
-                return new TokenResponse { Error = "Invalid user credentials." };
+            {
+                return new Response<TokenDTO> { Errors = { "Invalid user credentials." } };
+            }
 
             return await CreateNewTokensAsync(user);
         }
-        public async Task<TokenResponse> RefreshTokensAsync(RefreshTokenDTO refreshTokenDTO)
+        public async Task<Response<TokenDTO>> RefreshTokensAsync(RefreshTokenDTO refreshTokenDTO)
         {
             //Validate Access Token Expiration
             JwtSecurityToken token = _jwtSecurityTokenHandler.ReadJwtToken(refreshTokenDTO.AccessToken);
             if (token.ValidTo >= DateTime.UtcNow)
             {
-                return new TokenResponse { Error = "Access token hasn't expired yet" };
-
+                return new Response<TokenDTO> { Errors = { "Access token hasn't expired yet" } };
             }
 
             //Validate Refresh Token
@@ -98,31 +109,30 @@ namespace MTGCapstone.API.Services
 
             if (oldRefreshToken is null)
             {
-                return new TokenResponse { Error = "Invalid refresh token" };
+                return new Response<TokenDTO> { Errors = { "Invalid refresh token" } };
             }
             if (DateTime.UtcNow > oldRefreshToken.ExpiredAt)
             {
-                return new TokenResponse { Error = "Expired refresh token" };
+                return new Response<TokenDTO> { Errors = { "Expired refresh token" } };
             }
             if (oldRefreshToken.JwtId != token.Id)
             {
-                return new TokenResponse { Error = "Tokens don't match" };
+                return new Response<TokenDTO> { Errors = { "Tokens don't match" } };
             }
             if (oldRefreshToken.Used)
             {
-                return new TokenResponse { Error = "Previously used refresh token" };
+                return new Response<TokenDTO> { Errors = { "Previously used refresh token" } };
             }
             if (oldRefreshToken.Revoked)
             {
-                return new TokenResponse { Error = "Revoked refresh token" };
+                return new Response<TokenDTO> { Errors = { "Revoked refresh token" } };
             }
             User? user = await _capstoneDbContext.Users.FindAsync(oldRefreshToken.UserId);
             if (user is null)
             {
-                return new TokenResponse { Error = "User not found" };
+                return new Response<TokenDTO> { Errors = { "User not found" } };
             }
 
-            //TODO: ADD ALL THE BRACKETS (╯°□°)╯︵ ┻━┻
             //Update old Refresh Token
             oldRefreshToken.Used = true;
             await _capstoneDbContext.SaveChangesAsync();
@@ -130,82 +140,96 @@ namespace MTGCapstone.API.Services
 
             return await CreateNewTokensAsync(user);
         }
-        public async Task<TokenResponse> RevokeAsync(RefreshTokenToRevokeDTO refreshToken)
+        public async Task<Response<TokenDTO>> RevokeAsync(RefreshTokenToRevokeDTO refreshToken)
         {
             RefreshToken? tokenToRevoke = await _capstoneDbContext.RefreshTokens
                 .FirstOrDefaultAsync(rf => rf.Token == refreshToken.RefreshToken);
             if (tokenToRevoke is null)
-                return new TokenResponse { Error = "Invalid refresh token" };
+            {
+                return new Response<TokenDTO> { Errors = { "Invalid refresh token" } };
+            }
             //Could check to make sure that it's an otherwise valid refresh token, but this still works.
 
             tokenToRevoke.Revoked = true;
             await _capstoneDbContext.SaveChangesAsync();
 
-            return new TokenResponse { Success = true };
+            return new Response<TokenDTO> { Success = true };
         }
-        public async Task<TokenResponse> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO)
+        public async Task<Response<TokenDTO>> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO)
         {
             User user = await _userManager.FindByNameAsync(confirmEmailRequestDTO.UserName);
             if (user == null)
-                return new TokenResponse { Error = "User not found" };
+            {
+                return new Response<TokenDTO> { Errors = { "User not found" } };
+            }
 
             string token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
             string callbackUrl = "https://localhost:7277/authentication/confirm-email";
 
-            TokenResponse response = await SendTokenInEmailAsync(token, user, callbackUrl);
+            Response<TokenDTO> response = await SendTokenInEmailAsync(token, user, callbackUrl);
             if (!response.Success)
             {
                 return response;
             }
-            return new TokenResponse { Success = true };
+            return response;
         }
-        public async Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
+        public async Task<Response<TokenDTO>> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
         {
             User user = await _userManager.FindByEmailAsync(confirmEmailDTO.Email);
             if (user == null)
-                return new TokenResponse { Error = "User not found" };
+            {
+                return new Response<TokenDTO> { Errors = { "User not found" } };
+            }
 
 
             IdentityResult result = await _userManager.ConfirmEmailAsync(user, confirmEmailDTO.token);
 
             if (!result.Succeeded)
-                return new TokenResponse { Error = result.Error() };
+            {
+                return new Response<TokenDTO> { Errors = result.Errors.Select(e => e.Description).ToList() };
+            }
 
-            return new TokenResponse { Success = true };
+            return new Response<TokenDTO> { Success = true };
         }
-        public async Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName)
+        public async Task<Response<TokenDTO>> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName)
         {
             User? user = await _userManager.FindByNameAsync(userName.UserName);
             if (user is null)
-                return new TokenResponse { Error = "User not found" };
+            {
+                return new Response<TokenDTO> { Errors = { "User not found" } };
+            }
             
             string resetToken = await _userManager.GeneratePasswordResetTokenAsync(user);
             string callbackUrl = "https://localhost:7277/authentication/change-password";
 
-            TokenResponse response = await SendTokenInEmailAsync(resetToken, user, callbackUrl);
+            Response<TokenDTO> response = await SendTokenInEmailAsync(resetToken, user, callbackUrl);
             if (!response.Success)
             {
                 return response;
             }
-            return new TokenResponse { Success = true };
+            return new Response<TokenDTO> { Success = true };
 
         }
-        public async Task<TokenResponse> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO)
+        public async Task<Response<TokenDTO>> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO)
         {
             User user = await _userManager.FindByEmailAsync(changePasswordDTO.Email);
             if (user == null)
-                return new TokenResponse { Error = "User not found" };
+            {
+                return new Response<TokenDTO> { Errors = { "User not found" } };
+            }
 
             IdentityResult result = await _userManager.ResetPasswordAsync(user, changePasswordDTO.token, changePasswordDTO.Password);
 
             if (!result.Succeeded)
-                return new TokenResponse { Error = result.Error() };
+            {
+                return new Response<TokenDTO> { Errors = result.Errors.Select(e => e.Description).ToList() };
+            }
 
-            return new TokenResponse { Success = true };
+            return new Response<TokenDTO> { Success = true };
         }
 
 
-        private async Task<TokenResponse> SendTokenInEmailAsync(string token, User user, string callbackUrl)
+        private async Task<Response<TokenDTO>> SendTokenInEmailAsync(string token, User user, string callbackUrl)
         {
             //TODO: Make this changable with config.
             //TODO: IMPORTANT Change this to whatever url my front end needs to change password.
@@ -231,11 +255,11 @@ namespace MTGCapstone.API.Services
 
             if (!email.Successful)
             {
-                return new TokenResponse { Error = email.Error() };
+                return new Response<TokenDTO> { Errors = email.ErrorMessages.ToList() };
             }
 
             //TODO: only returning this right now for testing.  probably only return success=true.
-            return new TokenResponse { Success = true, AccessToken = emailBody };
+            return new Response<TokenDTO> { Success = true, Value = new TokenDTO { AccessToken = emailBody } };
         }
         private async Task<User?> ValidateUserCredentialsAsync(AuthenticationRequestBody authenticationRequestBody)
         {
@@ -248,11 +272,13 @@ namespace MTGCapstone.API.Services
             }
 
             if (!await _userManager.CheckPasswordAsync(user, authenticationRequestBody.Password))
+            {
                 return null;
+            }
 
             return user;
         }
-        private async Task<TokenResponse> CreateNewTokensAsync(User user)
+        private async Task<Response<TokenDTO>> CreateNewTokensAsync(User user)
         {
             SigningCredentials signingCredentials = CreateSigningCredentials();
 
@@ -276,7 +302,7 @@ namespace MTGCapstone.API.Services
 
             string refreshToken = await CreateRefreshTokenAsync(user, jwtSecurityToken.Id);
 
-            return new TokenResponse { Success = true, AccessToken = accessToken, RefreshToken = refreshToken };
+            return new Response<TokenDTO> { Success = true, Value = new TokenDTO { AccessToken = accessToken, RefreshToken = refreshToken } };
         }
         private async Task<List<Claim>> CreateClaimsAsync(User user)
         {

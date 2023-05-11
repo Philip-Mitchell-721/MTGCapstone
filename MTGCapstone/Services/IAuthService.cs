@@ -1,5 +1,7 @@
-﻿using MTGCapstone.API.Data.Models;
+﻿using MTGCapstone.API.Data.DTOs;
+using MTGCapstone.API.Data.Models;
 using MTGCapstone.API.Data.Models.Identity;
+using MTGCapstone.API.Data.Responses;
 using MTGCapstone.API.Data.Tokens;
 
 namespace MTGCapstone.API.Services
@@ -7,13 +9,13 @@ namespace MTGCapstone.API.Services
     public interface IAuthService
     {
 
-        Task<TokenResponse> RegisterUserAsync(UserRegistrationModel userRegistrationModel);
-        Task<TokenResponse> LoginAsync(AuthenticationRequestBody authenticationRequestBody);
-        Task<TokenResponse> RefreshTokensAsync(RefreshTokenDTO refreshTokenDTO);
-        Task<TokenResponse> RevokeAsync(RefreshTokenToRevokeDTO refreshToken);
-        Task<TokenResponse> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO);
-        Task<TokenResponse> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO);
-        Task<TokenResponse> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName);
-        Task<TokenResponse> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO);
+        Task<Response<TokenDTO>> RegisterUserAsync(UserRegistrationModel userRegistrationModel);
+        Task<Response<TokenDTO>> LoginAsync(AuthenticationRequestBody authenticationRequestBody);
+        Task<Response<TokenDTO>> RefreshTokensAsync(RefreshTokenDTO refreshTokenDTO);
+        Task<Response<TokenDTO>> RevokeAsync(RefreshTokenToRevokeDTO refreshToken);
+        Task<Response<TokenDTO>> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO confirmEmailRequestDTO);
+        Task<Response<TokenDTO>> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO);
+        Task<Response<TokenDTO>> ChangePasswordRequestAsync(ChangePasswordRequestDTO userName);
+        Task<Response<TokenDTO>> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO);
     }
 }
