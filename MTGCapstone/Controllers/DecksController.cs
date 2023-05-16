@@ -19,16 +19,13 @@ namespace MTGCapstone.API.Controllers
     public class DecksController : ControllerBase
     {
         private readonly IDeckService _deckService;
-        private readonly ILogger<DecksController> _logger;
         private int? UserId => User.Id();
 
-        public DecksController(IDeckService deckService, 
-            ILogger<DecksController> logger)
+        public DecksController(IDeckService deckService)
         {
             _deckService = deckService
                 ?? throw new ArgumentNullException(nameof(deckService));
-            _logger = logger
-                ?? throw new ArgumentNullException(nameof(logger));
+            
         }
 
         [AllowAnonymous]
@@ -81,7 +78,7 @@ namespace MTGCapstone.API.Controllers
             return response.StatusCode switch
             {
                 ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckById", new { id = response.Value!.Id }, response.Value),
+                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckById", new { deckId = response.Value!.Id }, response.Value),
                 _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
             };
         }
@@ -198,7 +195,7 @@ namespace MTGCapstone.API.Controllers
 
             return response.StatusCode switch
             {
-                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckCardById", new { deckId, deckCardId = response.Value.DeckCardId }, response.Value),
+                ResponseStatusCodes.Ok => Ok(response.Value),
                 ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
                 ResponseStatusCodes.Forbidden => Forbid(),
                 ResponseStatusCodes.NotFound => NotFound(response.Errors),
@@ -324,8 +321,6 @@ namespace MTGCapstone.API.Controllers
             return NoContent();
         }
 
-        //TODO: Get User Categories once authentication is figured out
-
 
         //Likes
 
@@ -357,7 +352,7 @@ namespace MTGCapstone.API.Controllers
                 return NotFound();
             }
 
-            Like like = await _deckService.LikeDeckAsync(deckId, UserId.Value);
+            await _deckService.LikeDeckAsync(deckId, UserId.Value);
 
             return NoContent();
         }
@@ -384,24 +379,24 @@ namespace MTGCapstone.API.Controllers
 
         //Comments
 
-        [HttpPut("{deckId}/Comments")]
-        public async Task<IActionResult> CommentOnDeckAsync(int deckId, CommentDTO commentDTO)
-        {
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+    //    [HttpPut("{deckId}/Comments")]
+    //    public async Task<IActionResult> CommentOnDeckAsync(int deckId, CommentDTO commentDTO)
+    //    {
+    //        if (!await _deckService.DeckExistsAsync(deckId))
+    //            return NotFound($"No deck found with Id:{deckId}.");
 
-            if (!ModelState.IsValid)
-                return UnprocessableEntity(ModelState);
+    //        if (!ModelState.IsValid)
+    //            return UnprocessableEntity(ModelState);
 
-            string? commentingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (commentingUserIdString is null || int.TryParse(commentingUserIdString, out int commentingUserId))
-                return BadRequest();
+    //        string? commentingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
+    //        if (commentingUserIdString is null || int.TryParse(commentingUserIdString, out int commentingUserId))
+    //            return BadRequest();
 
-            await _deckService.CommentOnDeckAsync(deckId, commentingUserId, commentDTO);
+    //        await _deckService.CommentOnDeckAsync(deckId, commentingUserId, commentDTO);
 
-            return NoContent();
+    //        return NoContent();
 
-        }
+    //    }
 
     }
 }

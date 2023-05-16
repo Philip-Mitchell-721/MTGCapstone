@@ -16,7 +16,6 @@ namespace MTGCapstone.API.Data.ViewModels
         public DateTime CreatedAt { get; set; }
         public DateTime LastEditedAt { get; set; }
 
-        public User? Owner { get; set; }
         public int Likes { get; set; }
         public List<Comment> Comments { get; set; } = new List<Comment>();
         public List<DeckCategory> DeckCategories { get; set; } = new List<DeckCategory>();

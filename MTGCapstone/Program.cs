@@ -13,8 +13,10 @@ using MTGCapstone.API.Middleware;
 using MTGCapstone.API.Services;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
 using MTGCapstone.API.Services.DomainServices;
+using Newtonsoft.Json;
 using System.IdentityModel.Tokens.Jwt;
 using System.Text;
+using System.Text.Json.Serialization;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
@@ -22,7 +24,18 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
 
 //comment in changed to Adding Identity
 builder.Services.AddControllers()
-    .AddNewtonsoftJson(); 
+    .AddNewtonsoftJson();
+
+//JsonConvert.DefaultSettings = () => new JsonSerializerSettings
+//{
+//    Formatting = Formatting.Indented,
+//    ReferenceLoopHandling = ReferenceLoopHandling.Ignore
+//};
+//.AddJsonOptions(options =>
+//{
+//    options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+//}); 
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

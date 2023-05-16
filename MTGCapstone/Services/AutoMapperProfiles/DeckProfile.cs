@@ -12,8 +12,8 @@ namespace MTGCapstone.API.Services.AutoMapperProfiles
             CreateMap<Deck, DeckVM>()
                 .ForMember(dest => dest.OwnerId,
                             opt => opt.MapFrom(src => src.UserId))
-                .ForMember(dest => dest.Owner,
-                            opt => opt.MapFrom(src => src.User));
+                .ForMember(dest => dest.Likes,
+                            opt => opt.MapFrom(src => src.Likes.Count));
             CreateMap<DeckForCreationDto, Deck>();
             CreateMap<DeckForUpdateDto, Deck>().ReverseMap();
             CreateMap<DeckVM, DeckForUpdateDto>();
@@ -24,14 +24,24 @@ namespace MTGCapstone.API.Services.AutoMapperProfiles
     {
         public CardProfile()
         {
-            CreateMap<Card, CardVMForDeck>();
+            CreateMap<Card, CardVMForDeck>()
+                .ForMember(dest => dest.Colors,
+                            opt => opt.Ignore())
+                .ForMember(dest => dest.ColorIdentity,
+                            opt => opt.Ignore())
+                .ForMember(dest => dest.Keywords,
+                            opt => opt.Ignore())
+                .ForMember(dest => dest.CardFaces,
+                            opt => opt.Ignore());
                 
             CreateMap<ImageUris, ImageUrisVM>();
             CreateMap<FormatLegalities, FormatLegalitiesVM>();
             CreateMap<Prices, PricesVM>();
             CreateMap<RelatedUris, RelatedUrisVM>();
             CreateMap<PurchaseUris, PurchaseUrisVM>();
-            CreateMap<CardFace, CardFaceVM>();
+            CreateMap<CardFace, CardFaceVM>()
+                .ForMember(dest => dest.Colors,
+                            opt => opt.Ignore());
             
         }
     }

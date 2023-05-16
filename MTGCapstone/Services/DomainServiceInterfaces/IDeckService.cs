@@ -44,6 +44,6 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
         Task<Response> UnLikeDeckAsync(int deckId, int userId);
 
     //Comments
-       Task CommentOnDeckAsync(int deckId, int userId, CommentDTO commentDTO);
+       //Task CommentOnDeckAsync(int deckId, int userId, CommentDTO commentDTO);
     }
 } 
