@@ -51,18 +51,18 @@ namespace MTGCapstone.API.Services.DomainServices
         {
             IQueryable<Deck> collection = _capstoneDbContext.Decks;
 
-            if (getDecksRequest.UserName is not null)
+            if (!string.IsNullOrWhiteSpace(getDecksRequest.UserName))
             {
                 collection = collection.Where(deck => deck.User != null 
                                                    && deck.User.UserName.ToLower() == getDecksRequest.UserName.ToLower());
             }
 
-            if (getDecksRequest.Format is not null)
+            if (!string.IsNullOrWhiteSpace(getDecksRequest.Format))
             {
                 collection = collection.Where(deck => deck.Format == getDecksRequest.Format);
             }
 
-            if (getDecksRequest.Commander is not null)
+            if (!string.IsNullOrWhiteSpace(getDecksRequest.Commander))
             {
                 
                 collection = collection.Where(deck => deck.DeckCategories
@@ -157,7 +157,7 @@ namespace MTGCapstone.API.Services.DomainServices
         public async Task<Response<DeckVM>> CreateDeckAsync(int userId, DeckForCreationDto deckDTOForCreation)
         {
             List<string> _formats = GetFormats();
-            if (!_formats.Contains(deckDTOForCreation.Format!.ToLower()))
+            if (!_formats.Contains(deckDTOForCreation.Format!.ToLower().Trim()))
             {
                 return new Response<DeckVM> { StatusCode = ResponseStatusCodes.BadRequest, Errors = { "Format doesn't exist." } };
             }
@@ -182,8 +182,9 @@ namespace MTGCapstone.API.Services.DomainServices
 
             response.Value!.LastEditedAt = DateTime.UtcNow;
 
-            //TODO: Make sure that the response.Value (deck) is still tracked, and therefore saved/updated.
             await _capstoneDbContext.SaveChangesAsync();
+
+            response.StatusCode = ResponseStatusCodes.NoContent;
             return response;
         }
         public async Task<Response<Deck>> DeleteDeckAsync(int userId, int deckId)
@@ -196,6 +197,7 @@ namespace MTGCapstone.API.Services.DomainServices
             
             _capstoneDbContext.Decks.Remove(response.Value!);
             await _capstoneDbContext.SaveChangesAsync();
+            response.StatusCode = ResponseStatusCodes.NoContent;
             
             return response;
         }
@@ -356,7 +358,7 @@ namespace MTGCapstone.API.Services.DomainServices
 
             return deckCard;
         }
-        public async Task<Response<CardVMForDeck>> AddNewCardToDeckAsync(int userId, int deckId, int cardId)
+        public async Task<Response<CardVMForDeck>> AddCardToDeckAsync(int userId, int deckId, int cardId)
         {
             Response<Deck> deckResponse = await GetValidEditableDeckWithDeckCardsAsync(userId, deckId);
             Response<CardVMForDeck> cardResponse = new()
@@ -373,13 +375,15 @@ namespace MTGCapstone.API.Services.DomainServices
             DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == cardId);
             if (deckCard is not null)
             {
-                cardResponse.Success = false;
-                cardResponse.StatusCode = ResponseStatusCodes.BadRequest;
-                cardResponse.Errors.Add("Card is already in deck.");
+                deckCard.Quantity++;
+                cardResponse.Success = true;
+                cardResponse.StatusCode = ResponseStatusCodes.NoContent;
+                await _capstoneDbContext.SaveChangesAsync();
+                //TODO: Test that this save changes is still tracking the deckcard.
                 return cardResponse;
             }
             
-            Card? card = _capstoneDbContext.Cards
+            Card? card = await _capstoneDbContext.Cards
                 .Include(card => card.ImageUris)
                 .Include(card => card.Colors)
                 .Include(card => card.ColorIdentity)
@@ -390,7 +394,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.PurchaseUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
-                .FirstOrDefault(c => cardId == c.Id);
+                .FirstOrDefaultAsync(c => cardId == c.Id);
             
             if (card is null)
             {
@@ -417,22 +421,88 @@ namespace MTGCapstone.API.Services.DomainServices
             cardResponse.StatusCode = ResponseStatusCodes.Created;
             return cardResponse;
         }
-        public async Task UpdateDeckCardPrintingAsync(int deckCardId, int cardId)
+        public async Task<Response<CardVMForDeck>> UpdateDeckCardPrintingAsync(int userId, int deckId, int deckCardId, int cardId)
         {
-            DeckCard? deckCard = await _capstoneDbContext.DeckCards.FindAsync(deckCardId);
-            if (deckCard is not null)
-                deckCard.CardId = cardId;
+            Response<Deck> deckResponse = await GetValidEditableDeckWithDeckCardsAsync(userId, deckId);
 
+            Response<CardVMForDeck> cardResponse = new()
+            {
+                StatusCode = deckResponse.StatusCode,
+                Message = deckResponse.Message,
+                Errors = deckResponse.Errors,
+                Success = deckResponse.Success
+            };
+            if (!cardResponse.Success)
+            {
+                return cardResponse;
+            }
+
+            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.Id == deckCardId);
+            if (deckCard is null)
+            {
+                cardResponse.StatusCode = ResponseStatusCodes.NotFound;
+                cardResponse.Errors.Add("Card not found in deck.");
+                return cardResponse;
+            }
+            
+            Card? card = await _capstoneDbContext.Cards
+                .Include(card => card.ImageUris)
+                .Include(card => card.Colors)
+                .Include(card => card.ColorIdentity)
+                .Include(card => card.Keywords)
+                .Include(card => card.Legalities)
+                .Include(card => card.Prices)
+                .Include(card => card.RelatedUris)
+                .Include(card => card.PurchaseUris)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .FirstOrDefaultAsync(c => cardId == c.Id);
+
+            if (card is null)
+            {
+                cardResponse.StatusCode = ResponseStatusCodes.NotFound;
+                cardResponse.Errors.Add("Card not found.");
+                cardResponse.Success = false;
+                return cardResponse;
+            }
+
+            deckCard.CardId = card.Id;
             await _capstoneDbContext.SaveChangesAsync();
+
+            CardVMForDeck cardVM = CreateCardVMForDeck(card, deckCard);
+            cardResponse.Value = cardVM;
+
+            cardResponse.StatusCode = ResponseStatusCodes.Ok;
+            return cardResponse;
         }
-        public async Task DeleteDeckCardAsync(int deckCardId)
+        public async Task<Response> RemoveCardFromDeckAsync(int userId, int deckId, int deckCardId)
         {
-            DeckCard? deckCard = await _capstoneDbContext.DeckCards.FindAsync(deckCardId);
+            Response<Deck> deckResponse = await GetValidEditableDeckWithDeckCardsAsync(userId, deckId);
+            Response response = new()
+            {
+                StatusCode = deckResponse.StatusCode,
+                Message = deckResponse.Message,
+                Errors = deckResponse.Errors,
+                Success = deckResponse.Success
+            };
+
+            if (!response.Success)
+            {
+                return response;
+            }
+
+            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.Id == deckCardId);
             if (deckCard is not null)
             {
-                _capstoneDbContext.DeckCards.Remove(deckCard);
+                deckCard.Quantity--;
+                if (deckCard.Quantity < 1)
+                {
+                    _capstoneDbContext.DeckCards.Remove(deckCard);
+                }
                 await _capstoneDbContext.SaveChangesAsync();
             }
+            response.StatusCode = ResponseStatusCodes.NoContent;
+            return response;
         }
 
     //DeckCategories
@@ -496,14 +566,16 @@ namespace MTGCapstone.API.Services.DomainServices
 
             return like;
         }
-        public async Task UnLikeDeckAsync(int deckId, int userId)
+        public async Task<Response> UnLikeDeckAsync(int deckId, int userId)
         {
             Like? like = _capstoneDbContext.Likes.FirstOrDefault(like => like.DeckId == deckId && like.UserId == userId);
             if (like is not null)
             {
                 _capstoneDbContext.Likes.Remove(like);
                 await _capstoneDbContext.SaveChangesAsync();
+                return new Response { Success = true, StatusCode = ResponseStatusCodes.NoContent}
             }
+            return new Response { StatusCode = ResponseStatusCodes.NotFound };
         }
 
         //Comments

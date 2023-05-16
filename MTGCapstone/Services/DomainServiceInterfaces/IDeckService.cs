@@ -25,9 +25,9 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
     //DeckCards
         //Task<List<Card>> GetCardsForDeck(int deckId);
         Task<DeckCard?> GetDeckCardByIdAsync(int deckCardId);
-        Task<Response<CardVMForDeck>> AddNewCardToDeckAsync(int userId, int deckId, int cardId);
-        Task UpdateDeckCardPrintingAsync(int deckCardId, int cardId);
-        Task DeleteDeckCardAsync(int deckCardId);
+        Task<Response<CardVMForDeck>> AddCardToDeckAsync(int userId, int deckId, int cardId);
+        Task<Response<CardVMForDeck>> UpdateDeckCardPrintingAsync(int userId, int deckId, int deckCardId, int cardId);
+        Task<Response> RemoveCardFromDeckAsync(int userId, int deckId, int deckCardId);
         Task<bool> CardExistsAsync(int id);
 
     //DeckCategories
@@ -41,7 +41,7 @@ namespace MTGCapstone.API.Services.DomainServiceInterfaces
     //Likes
         Task<Like?> GetLikeByIdAsync(int likeId);
         Task<Like> LikeDeckAsync(int deckId, int userId);
-        Task UnLikeDeckAsync(int deckId, int userId);
+        Task<Response> UnLikeDeckAsync(int deckId, int userId);
 
     //Comments
        Task CommentOnDeckAsync(int deckId, int userId, CommentDTO commentDTO);

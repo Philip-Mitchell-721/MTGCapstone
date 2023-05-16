@@ -20,6 +20,7 @@ namespace MTGCapstone.API.Controllers
     {
         private readonly IDeckService _deckService;
         private readonly ILogger<DecksController> _logger;
+        private int? UserId => User.Id();
 
         public DecksController(IDeckService deckService, 
             ILogger<DecksController> logger)
@@ -43,7 +44,11 @@ namespace MTGCapstone.API.Controllers
         [HttpGet("Personal")]
         public async Task<IActionResult> GetMyDecks([FromQuery] PersonalDecksRequest decksRequest)
         {
-            Response<List<DeckVM>> response = await _deckService.GetMyDecksAsync(User.Id(), decksRequest);
+            if (!UserId.HasValue)
+            {
+                return BadRequest();
+            }
+            Response<List<DeckVM>> response = await _deckService.GetMyDecksAsync(UserId.Value, decksRequest);
 
             return Ok(response);
         }
@@ -52,104 +57,104 @@ namespace MTGCapstone.API.Controllers
         [HttpGet("{deckId}", Name = "GetDeckById")]
         public async Task<ActionResult<DeckVM>> GetDeck(int deckId)
         {
-
             Response<DeckVM> response = await _deckService.GetDeckWithCardsAsync(deckId);
-            if (!response.Success)
+            
+            return response.StatusCode switch
             {
-                return response.StatusCode switch
-                {
-                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                    ResponseStatusCodes.Forbidden => Forbid(),
-                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
-                };
-            }
-            return Ok(response);
+                ResponseStatusCodes.Ok => Ok(response),
+                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
         [HttpPost]
         public async Task<IActionResult> CreateDeck(DeckForCreationDto deckDTOForCreation)
         {
-            if (!ModelState.IsValid)
+            if (!ModelState.IsValid || !UserId.HasValue)
             {
                 return BadRequest(ModelState);
             }
 
-            Response<DeckVM> response = await _deckService.CreateDeckAsync(User.Id(), deckDTOForCreation);
-            if (!response.Success)
+            Response<DeckVM> response = await _deckService.CreateDeckAsync(UserId.Value, deckDTOForCreation);
+
+            return response.StatusCode switch
             {
-                return BadRequest(response.Errors);
-            }
-            return CreatedAtRoute("GetDeckById", new { id = response.Value!.Id }, response.Value);
+                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckById", new { id = response.Value!.Id }, response.Value),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
+        
 
         [HttpPut("{deckId}")]
         public async Task<IActionResult> UpdateDeck(int deckId, DeckForUpdateDto deckForUpdateDTO)
         {
-            if (!ModelState.IsValid)
+            if (!ModelState.IsValid || !UserId.HasValue)
             {
                 return BadRequest(ModelState);
             }
 
-            var response = await _deckService.UpdateDeckAsync(User.Id(), deckId, deckForUpdateDTO);
-
-            if (!response.Success)
+            Response<Deck> response = await _deckService.UpdateDeckAsync(UserId.Value, deckId, deckForUpdateDTO);
+            
+            return response.StatusCode switch
             {
-                return response.StatusCode switch
-                {
-                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                    ResponseStatusCodes.Forbidden => Forbid(),
-                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
-                };
-            }
-            return NoContent();
+                ResponseStatusCodes.NoContent => NoContent(),
+                ResponseStatusCodes.Forbidden => Forbid(), //For some reason, the Forbid helper doesn't allow an object (errors) to be passed back
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
         [HttpPatch("{deckId}")]
         public async Task<IActionResult> PatchDeck(int deckId, [FromBody] JsonPatchDocument<DeckForUpdateDto> patchDoc)
         {
-            Response<DeckForUpdateDto> response = await _deckService.GetDeckForPatchDTOAsync(User.Id(), deckId);
-
-            if (!response.Success || response.Value is null)
+            if (!UserId.HasValue)
             {
-                return response.StatusCode switch
+                return BadRequest();
+            }
+
+            Response<DeckForUpdateDto> response = await _deckService.GetDeckForPatchDTOAsync(UserId.Value, deckId);
+
+            if (response.Success && response.Value is not null)
+            {
+                patchDoc.ApplyTo(response.Value, ModelState);
+                //The TryValidateModel will check the passed in model.
+                //If invalid, it will add the errors to the ModelState.
+                if (!TryValidateModel(response.Value))
                 {
-                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                    ResponseStatusCodes.Forbidden => Forbid(),
-                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
-                };
-            }
+                    return BadRequest(ModelState);
+                }
 
-            patchDoc.ApplyTo(response.Value, ModelState);
-            //The TryValidateModel will check the passed in model.
-            //If invalid, it will add the errors to the ModelState.
-            if (!ModelState.IsValid && !TryValidateModel(response.Value))
+                Response<Deck> updateResponse = await _deckService.UpdateDeckAsync(UserId.Value, deckId, response.Value);
+                response.StatusCode = updateResponse.StatusCode;
+            }
+            
+            return response.StatusCode switch
             {
-                return BadRequest(ModelState);
-            }
-
-            await _deckService.UpdateDeckAsync(User.Id(), deckId, response.Value);
-            return NoContent();
+                ResponseStatusCodes.NoContent => NoContent(),
+                ResponseStatusCodes.Forbidden => Forbid(),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
         [HttpDelete("{deckId}")]
         public async Task<IActionResult> DeleteDeck(int deckId)
         {
-            var response = await _deckService.DeleteDeckAsync(User.Id(), deckId);
-
-            if (!response.Success)
+            if (!UserId.HasValue)
             {
-                return response.StatusCode switch
-                {
-                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                    ResponseStatusCodes.Forbidden => Forbid(),
-                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
-                };
+                return BadRequest();
             }
-            return NoContent();
+            var response = await _deckService.DeleteDeckAsync(UserId.Value, deckId);
+
+            return response.StatusCode switch
+            {
+                ResponseStatusCodes.NoContent => NoContent(),
+                ResponseStatusCodes.Forbidden => Forbid(),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
 
@@ -185,56 +190,58 @@ namespace MTGCapstone.API.Controllers
         [HttpPost("{deckId}/Cards")]
         public async Task<IActionResult> AddNewCardToDeck(int deckId, [FromBody] int cardId)
         {
-            Response<CardVMForDeck> response = await _deckService.AddNewCardToDeckAsync(User.Id(), deckId, cardId);
-
-            if (!response.Success || response.Value is null)
+            if (!UserId.HasValue)
             {
-                return response.StatusCode switch
-                {
-                    ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                    ResponseStatusCodes.Forbidden => Forbid(),
-                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
-                };
+                return BadRequest();
             }
+            Response<CardVMForDeck> response = await _deckService.AddCardToDeckAsync(UserId.Value, deckId, cardId);
 
-            return CreatedAtRoute("GetDeckCardById", new { deckId, deckCardId = response.Value.DeckCardId }, response.Value);
+            return response.StatusCode switch
+            {
+                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckCardById", new { deckId, deckCardId = response.Value.DeckCardId }, response.Value),
+                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                ResponseStatusCodes.Forbidden => Forbid(),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
         [HttpPut("{deckId}/Cards/{deckCardId}")]
-        public async Task<IActionResult> ChangePrintingForDeckCard(int deckId, int deckCardId, int cardId)
+        public async Task<IActionResult> ChangePrintingForDeckCard(int deckId, int deckCardId, [FromBody] int cardId)
         {
-            if (cardId == 0)
-                return BadRequest("No cardId in request.");
+            if (!UserId.HasValue)
+            {
+                return BadRequest();
+            }
 
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+            Response<CardVMForDeck> response = await _deckService.UpdateDeckCardPrintingAsync(UserId.Value, deckId, deckCardId, cardId);
 
-            if (!await _deckService.CardExistsAsync(cardId))
-                return NotFound($"No card found with Id:{cardId}.");
-
-            DeckCard? deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
-            if (deckCard is null)
-                return NotFound($"No deckCard found with Id:{deckCardId}.");
-
-            await _deckService.UpdateDeckCardPrintingAsync(deckCardId, cardId);
-
-            return NoContent();
+            return response.StatusCode switch
+            {
+                ResponseStatusCodes.Ok => Ok(response.Value),
+                ResponseStatusCodes.Forbidden => Forbid(),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
         [HttpDelete("{deckId}/Cards/{deckCardId}")]
         public async Task<IActionResult> RemoveCardFromDeck(int deckId, int deckCardId)
         {
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
+            if (!UserId.HasValue)
+            {
+                return BadRequest();
+            }
 
-            DeckCard? deckCard = await _deckService.GetDeckCardByIdAsync(deckCardId);
-            if (deckCard is null)
-                return NotFound($"No deckCard found with Id:{deckCardId}.");
+            var response = await _deckService.RemoveCardFromDeckAsync(UserId.Value, deckId, deckCardId);
 
-            await _deckService.DeleteDeckCardAsync(deckCardId);
-
-            return NoContent();
+            return response.StatusCode switch
+            {
+                ResponseStatusCodes.NoContent => NoContent(),
+                ResponseStatusCodes.Forbidden => Forbid(),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
 
@@ -341,10 +348,16 @@ namespace MTGCapstone.API.Controllers
         [HttpPut("{deckId}/Likes")]
         public async Task<IActionResult> LikeDeckAsync(int deckId)
         {
+            if (!UserId.HasValue)
+            {
+                return BadRequest(ModelState);
+            }
             if (!await _deckService.DeckExistsAsync(deckId))
+            {
                 return NotFound();
+            }
 
-            Like like = await _deckService.LikeDeckAsync(deckId, User.Id());
+            Like like = await _deckService.LikeDeckAsync(deckId, UserId.Value);
 
             return NoContent();
         }
@@ -352,18 +365,21 @@ namespace MTGCapstone.API.Controllers
         [HttpDelete("{deckId}/Likes")]
         public async Task<IActionResult> UnLikeDeckAsync(int deckId)
         {
-            if (!await _deckService.DeckExistsAsync(deckId))
-                return NotFound($"No deck found with Id:{deckId}.");
-
-            string? likingUserIdString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (likingUserIdString is null || int.TryParse(likingUserIdString, out int likingUserId))
+            if (!UserId.HasValue)
+            {
                 return BadRequest();
+            }
 
-            
+            Response response = await _deckService.UnLikeDeckAsync(deckId, UserId.Value);
 
-            await _deckService.UnLikeDeckAsync(deckId, likingUserId);
-
-            return NoContent();
+            return response.StatusCode switch
+            {
+                ResponseStatusCodes.NoContent => NoContent(),
+                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
+                ResponseStatusCodes.Forbidden => Forbid(),
+                ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+            };
         }
 
         //Comments

@@ -110,6 +110,6 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
-app.MapControllers(); //TODO: Move this back to after auths
+app.MapControllers();
 
 app.Run();

@@ -119,13 +119,13 @@ namespace MTGCapstone.API.Services
             {
                 return new Response<TokenDTO> { Errors = { "Tokens don't match" } };
             }
-            if (oldRefreshToken.Used)
-            {
-                return new Response<TokenDTO> { Errors = { "Previously used refresh token" } };
-            }
             if (oldRefreshToken.Revoked)
             {
                 return new Response<TokenDTO> { Errors = { "Revoked refresh token" } };
+            }
+            if (oldRefreshToken.Used)
+            {
+                return new Response<TokenDTO> { Errors = { "Previously used refresh token" } };
             }
             User? user = await _capstoneDbContext.Users.FindAsync(oldRefreshToken.UserId);
             if (user is null)
@@ -207,7 +207,9 @@ namespace MTGCapstone.API.Services
             {
                 return response;
             }
-            return new Response<TokenDTO> { Success = true };
+            //TODO: This response is being returned like this just so that I can see that the email token is there.
+            //remove later.
+            return response;
 
         }
         public async Task<Response<TokenDTO>> ChangePasswordAsync(ChangePasswordDTO changePasswordDTO)
@@ -291,7 +293,7 @@ namespace MTGCapstone.API.Services
                     audience: _configuration["Authentication:Audience"],
                     claims: claimsForToken,
                     notBefore: DateTime.UtcNow,
-                    expires: DateTime.UtcNow.AddSeconds(7200),
+                    expires: DateTime.UtcNow.AddSeconds(600),
                     signingCredentials: signingCredentials
                 );
 
@@ -360,7 +362,15 @@ namespace MTGCapstone.API.Services
                 UserId = user.Id,
                 JwtId = jwtId
             };
-
+            //TODO: Find each refreshToken for that user and mark them "used" (ASK: or revoke them?)
+            //List<RefreshToken> usersRefreshTokens = _capstoneDbContext.RefreshTokens.Where(rt => rt.UserId == user.Id).ToList();
+            //foreach (RefreshToken rt in usersRefreshTokens)
+            //{
+            //    if (rt.ExpiredAt > DateTime.UtcNow)
+            //    {
+            //        rt.ExpiredAt = DateTime.UtcNow;
+            //    }
+            //}
             _capstoneDbContext.RefreshTokens.Add(refreshToken);
             await _capstoneDbContext.SaveChangesAsync();
 

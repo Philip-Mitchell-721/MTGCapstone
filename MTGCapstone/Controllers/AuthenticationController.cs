@@ -21,7 +21,7 @@ namespace MTGCapstone.API.Controllers
 
         public AuthenticationController(IAuthService authService, ILogger<AuthenticationController> logger)
         {
-            _authService = authService 
+            _authService = authService
                 ?? throw new ArgumentNullException(nameof(authService));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         }
@@ -41,8 +41,6 @@ namespace MTGCapstone.API.Controllers
             {
                 return Unauthorized(tokenResponse.Errors);
             }
-            //TODO: Why is the Access Token always the same?
-            //TODO: Is it always the same?  Or was that because I was logging in while that token was still valid?
 
             return Ok(tokenResponse);
         }
@@ -63,11 +61,11 @@ namespace MTGCapstone.API.Controllers
                 {
                     return StatusCode((int)ResponseStatusCodes.Error, tokenResponse.Errors);
                 }
-                
+
                 //TODO: Remember that I need to change this to return the email link to confirm email account.
                 return Ok(tokenResponse);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 _logger.LogError(ex, "Error while registering user");
                 return StatusCode(500, "Error while registering user");
@@ -88,7 +86,7 @@ namespace MTGCapstone.API.Controllers
             {
                 return Unauthorized(tokenResponse.Errors);
             }
-            
+
             return Ok(tokenResponse);
         }
 
@@ -132,8 +130,11 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("confirm-email")]
-        public async Task<IActionResult> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
+        public async Task<IActionResult> ConfirmEmailAsync([FromQuery] ConfirmEmailDTO confirmEmailDTO)
         {
+            //ASK: Should this be from Query, since it's a link in an email?
+            //but the one for change password should be from body like normal, because the link will 
+            //redirect them to the page with the form to change password?
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
