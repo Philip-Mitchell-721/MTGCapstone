@@ -185,13 +185,13 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPost("{deckId}/Cards")]
-        public async Task<IActionResult> AddNewCardToDeck(int deckId, [FromBody] int cardId)
+        public async Task<IActionResult> AddCardToDeck(int deckId, AddCardRequestDto requestDto)
         {
             if (!UserId.HasValue)
             {
                 return BadRequest();
             }
-            Response<CardVMForDeck> response = await _deckService.AddCardToDeckAsync(UserId.Value, deckId, cardId);
+            Response<CardVMForDeck> response = await _deckService.AddCardToDeckAsync(UserId.Value, deckId, requestDto);
 
             return response.StatusCode switch
             {

@@ -8,6 +8,7 @@ using MTGCapstone.API.DbContexts;
 using MTGCapstone.API.Extentions.LoggerMessages;
 using MTGCapstone.API.Services.DomainServiceInterfaces;
 using Newtonsoft.Json.Linq;
+using System.ComponentModel.DataAnnotations;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq.Dynamic.Core;
 using System.Net;
@@ -231,10 +232,11 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(d => d.DeckCategories)
                 .FirstOrDefaultAsync(d =>  d.Id == deckId);
 
-            if (deck is null)
+            if (deck is null || deck.IsPrivate)
             {
                 return new Response<DeckVM>() { Errors = { "Deck not found." }, StatusCode = ResponseStatusCodes.NotFound };
             }
+            
 
             //get cards with related data
             IEnumerable<int?> cardIds = deck.DeckCards.Select(dc => dc.CardId);
@@ -375,8 +377,12 @@ namespace MTGCapstone.API.Services.DomainServices
 
             return deckCard;
         }
-        public async Task<Response<CardVMForDeck>> AddCardToDeckAsync(int userId, int deckId, int cardId)
+        public async Task<Response<CardVMForDeck>> AddCardToDeckAsync(int userId, int deckId, AddCardRequestDto requestDto)
         {
+            if (!TryValidateObjectRequest(requestDto, out List<ValidationResult>? results))
+            {
+                return new Response<CardVMForDeck> { Errors = results?.Select(r => r.ErrorMessage ?? string.Empty).ToList() ?? new List<string>(), StatusCode = ResponseStatusCodes.BadRequest };
+            }
             Response<Deck> deckResponse = await GetValidEditableDeckWithDeckCardsAsync(userId, deckId);
             Response<CardVMForDeck> cardResponse = new()
             {
@@ -389,7 +395,7 @@ namespace MTGCapstone.API.Services.DomainServices
             {
                 return cardResponse;
             }
-            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == cardId);
+            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == requestDto.CardId);
             if (deckCard is not null)
             {
                 deckCard.Quantity++;
@@ -399,7 +405,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 //TODO: Test that this save changes is still tracking the deckcard.
                 return cardResponse;
             }
-            Card? card = await GetCardWithRelatedTablesAsync(cardId);
+            Card? card = await GetCardWithRelatedTablesAsync(requestDto.CardId!.Value);
 
             if (card is null)
             {
@@ -606,5 +612,11 @@ namespace MTGCapstone.API.Services.DomainServices
             return await _capstoneDbContext.Cards.AnyAsync(d => d.Id == id);
         }
 
+        private static bool TryValidateObjectRequest(object requestObject, out List<ValidationResult> results)
+        {
+            results = new();
+            ValidationContext context = new ValidationContext(requestObject, null, null);
+            return Validator.TryValidateObject(requestObject, context, results);
+        }
     }
 }
