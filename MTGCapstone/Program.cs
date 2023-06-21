@@ -54,6 +54,16 @@ builder.Services.AddTransient<IPropertyMappingService, PropertyMappingService>()
 //        //.AddRazorRenderer()
 //        .AddSmtpSender("localhost", 25);
 
+string myAllowSpecificOrigins = "allowMyFrontEnd";
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(name: myAllowSpecificOrigins,
+                      policy =>
+                      {
+                          policy.WithOrigins("http://127.0.0.1:5500");
+                      });
+});
+
 builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>
@@ -115,6 +125,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseRouting();
+
+app.UseCors(myAllowSpecificOrigins);
 
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 app.UseAuthentication();
