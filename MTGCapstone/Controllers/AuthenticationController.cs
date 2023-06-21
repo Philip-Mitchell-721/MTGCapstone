@@ -59,7 +59,7 @@ namespace MTGCapstone.API.Controllers
 
                 if (!tokenResponse.Success)
                 {
-                    return StatusCode((int)ResponseStatusCodes.Error, tokenResponse.Errors);
+                    return StatusCode((int)ResponseStatusCodes.BadRequest, tokenResponse.Errors);
                 }
 
                 //TODO: Remember that I need to change this to return the email link to confirm email account.
