@@ -55,14 +55,22 @@ builder.Services.AddTransient<IPropertyMappingService, PropertyMappingService>()
 //        .AddSmtpSender("localhost", 25);
 
 string myAllowSpecificOrigins = "allowMyFrontEnd";
+string allowAnyOrigins = "allowAnyOrigins";
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: myAllowSpecificOrigins,
                       policy =>
                       {
-                          policy.WithOrigins("http://127.0.0.1:5500");
-                          policy.AllowAnyHeader();
+                          policy.WithOrigins("http://127.0.0.1:5500")
+                            .AllowAnyHeader();
                           //TODO: ASK: remove this .AllowAnyHeader()?
+                      });
+    options.AddPolicy(name: allowAnyOrigins,
+                      policy =>
+                      {
+                          policy.AllowAnyOrigin()
+                           .AllowAnyHeader()
+                           .AllowAnyMethod();
                       });
 });
 
@@ -128,7 +136,7 @@ app.UseHttpsRedirection();
 
 app.UseRouting();
 
-app.UseCors(myAllowSpecificOrigins);
+app.UseCors(allowAnyOrigins);
 
 JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 app.UseAuthentication();
