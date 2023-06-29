@@ -39,7 +39,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!tokenResponse.Success)
             {
-                return Unauthorized(tokenResponse.Errors);
+                return Unauthorized(tokenResponse);
             }
 
             return Ok(tokenResponse);
@@ -59,7 +59,7 @@ namespace MTGCapstone.API.Controllers
 
                 if (!tokenResponse.Success)
                 {
-                    return StatusCode((int)ResponseStatusCodes.BadRequest, tokenResponse.Errors);
+                    return StatusCode((int)ResponseStatusCodes.BadRequest, tokenResponse);
                 }
 
                 //TODO: Remember that I need to change this to return the email link to confirm email account.
@@ -84,7 +84,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!tokenResponse.Success)
             {
-                return Unauthorized(tokenResponse.Errors);
+                return Unauthorized(tokenResponse);
             }
 
             return Ok(tokenResponse);
@@ -103,7 +103,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!response.Success)
             {
-                return BadRequest(response.Errors);
+                return BadRequest(response);
             }
 
             return NoContent();
@@ -123,7 +123,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!response.Success)
             {
-                return BadRequest(response.Errors);
+                return BadRequest(response);
             }
 
             return Ok();
@@ -144,7 +144,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!response.Success)
             {
-                return BadRequest(response.Errors);
+                return BadRequest(response);
             }
 
             return Ok();
@@ -162,7 +162,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!response.Success || response.Value is null)
             {
-                return BadRequest(response.Errors);
+                return BadRequest(response);
             }
             //This is just to see the changePasswordEmailToken
             //remove this and return Ok()
@@ -181,7 +181,7 @@ namespace MTGCapstone.API.Controllers
 
             if (!response.Success)
             {
-                return BadRequest(response.Errors);
+                return BadRequest(response);
             }
 
             return Ok(); 

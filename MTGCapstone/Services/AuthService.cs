@@ -312,6 +312,7 @@ namespace MTGCapstone.API.Services
             List<Claim> claimsForToken = new List<Claim>
             {
                 new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim(JwtRegisteredClaimNames.Name, user.UserName),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
             IList<Claim> userClaims = await _userManager.GetClaimsAsync(user);
