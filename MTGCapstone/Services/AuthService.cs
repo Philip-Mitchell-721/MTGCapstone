@@ -74,7 +74,7 @@ namespace MTGCapstone.API.Services
                     return response;
                 }
 
-                return new Response<TokenDTO> { Success = true };
+                return response;
 
             }
             catch(Exception ex)
