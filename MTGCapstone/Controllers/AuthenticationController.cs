@@ -113,7 +113,7 @@ namespace MTGCapstone.API.Controllers
         public async Task<IActionResult> ConfirmEmailRequestAsync(ConfirmEmailRequestDTO userName)
         {
 
-            System.Security.Claims.Claim? id = User.Claims.FirstOrDefault(c => c.Type == "sub");
+            //System.Security.Claims.Claim? id = User.Claims.FirstOrDefault(c => c.Type == "sub");
             if (!ModelState.IsValid)
             {
                 return BadRequest(ModelState);
@@ -126,11 +126,11 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(response);
             }
 
-            return Ok();
+            return Ok(response);
         }
 
         [HttpPost("confirm-email")]
-        public async Task<IActionResult> ConfirmEmailAsync([FromQuery] ConfirmEmailDTO confirmEmailDTO)
+        public async Task<IActionResult> ConfirmEmailAsync(ConfirmEmailDTO confirmEmailDTO)
         {
             //ASK: Should this be from Query, since it's a link in an email?
             //but the one for change password should be from body like normal, because the link will 
@@ -147,7 +147,7 @@ namespace MTGCapstone.API.Controllers
                 return BadRequest(response);
             }
 
-            return Ok();
+            return Ok(response);
         }
 
         [HttpPost("change-password-request")]

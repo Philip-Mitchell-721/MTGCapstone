@@ -239,26 +239,26 @@ namespace MTGCapstone.API.Services
             string emailBody = $"<a href=\"{resetTokenUrl}\" >Reset Password</a>";
 
             //TODO: local host is for testing.  Change this to your email server.
-            SmtpSender sender = new SmtpSender(() => new SmtpClient("localhost")
-            {
-                EnableSsl = false, //For testing
-                DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory,
-                PickupDirectoryLocation = @"C:\Users\Philip\Documents\EmailTest"
-            });
+            //SmtpSender sender = new SmtpSender(() => new SmtpClient("localhost")
+            //{
+            //    EnableSsl = false, //For testing
+            //    DeliveryMethod = SmtpDeliveryMethod.SpecifiedPickupDirectory,
+            //    PickupDirectoryLocation = @"C:\Users\Philip\Documents\EmailTest"
+            //});
 
-            Email.DefaultSender = sender;
+            //Email.DefaultSender = sender;
 
-            FluentEmail.Core.Models.SendResponse email = await Email
-                .From("noreply@MTGCapstone.com")
-                .To(user.Email, user.UserName)
-                .Subject("CapstoneMTG Password Reset")
-                .Body(emailBody, true)
-                .SendAsync();
+            //FluentEmail.Core.Models.SendResponse email = await Email
+            //    .From("noreply@MTGCapstone.com")
+            //    .To(user.Email, user.UserName)
+            //    .Subject("CapstoneMTG Password Reset")
+            //    .Body(emailBody, true)
+            //    .SendAsync();
 
-            if (!email.Successful)
-            {
-                return new Response<TokenDTO> { Errors = email.ErrorMessages.ToList() };
-            }
+            //if (!email.Successful)
+            //{
+            //    return new Response<TokenDTO> { Errors = email.ErrorMessages.ToList() };
+            //}
 
             //TODO: only returning this right now for testing.  probably only return success=true.
             return new Response<TokenDTO> { Success = true, Value = new TokenDTO { AccessToken = emailBody } };
