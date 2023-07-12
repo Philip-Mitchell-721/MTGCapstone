@@ -77,9 +77,9 @@ namespace MTGCapstone.API.Controllers
 
             return response.StatusCode switch
             {
-                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckById", new { deckId = response.Value!.Id }, response.Value),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                ResponseStatusCodes.BadRequest => BadRequest(response),
+                ResponseStatusCodes.Created => CreatedAtRoute("GetDeckById", new { deckId = response.Value!.Id }, response),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response)
             };
         }
         
