@@ -187,7 +187,7 @@ namespace MTGCapstone.API.Controllers
         [HttpPost("{deckId}/Cards")]
         public async Task<IActionResult> AddCardToDeck(int deckId, AddCardRequestDto requestDto)
         {
-            if (!UserId.HasValue)
+            if (!UserId.HasValue || (requestDto.CardId is null && string.IsNullOrWhiteSpace(requestDto.ScryfallId)))
             {
                 return BadRequest();
             }
@@ -195,11 +195,11 @@ namespace MTGCapstone.API.Controllers
 
             return response.StatusCode switch
             {
-                ResponseStatusCodes.Ok => Ok(response.Value),
-                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                ResponseStatusCodes.Forbidden => Forbid(),
-                ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                ResponseStatusCodes.Ok => Ok(response),
+                ResponseStatusCodes.BadRequest => BadRequest(response),
+                ResponseStatusCodes.Forbidden => StatusCode((int)ResponseStatusCodes.Forbidden, response),
+                ResponseStatusCodes.NotFound => NotFound(response),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response)
             };
         }
 

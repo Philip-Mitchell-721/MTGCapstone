@@ -4,8 +4,8 @@ namespace MTGCapstone.API.Data.DTOs
 {
     public class AddCardRequestDto
     {
-        [Required]
         public int? CardId { get; set; } = null;
         public string Board { get; set; } = "main";
+        public string? ScryfallId { get; set; } = null;
     }
 }

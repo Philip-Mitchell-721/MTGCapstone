@@ -395,7 +395,24 @@ namespace MTGCapstone.API.Services.DomainServices
             {
                 return cardResponse;
             }
-            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == requestDto.CardId);
+            Card? card = null;
+            if (requestDto.CardId is not null)
+            {
+                card = await GetCardWithRelatedTablesAsync(requestDto.CardId!.Value);
+            }
+            if (card is null && !string.IsNullOrWhiteSpace(requestDto.ScryfallId))
+            {
+                card = await GetCardWithRelatedTablesAsync(requestDto.ScryfallId);
+            }
+            if (card is null)
+            {
+                cardResponse.StatusCode = ResponseStatusCodes.NotFound;
+                cardResponse.Errors.Add("Card not found.");
+                cardResponse.Success = false;
+                return cardResponse;
+            }
+
+            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == card.Id);
             if (deckCard is not null)
             {
                 deckCard.Quantity++;
@@ -405,15 +422,8 @@ namespace MTGCapstone.API.Services.DomainServices
                 //TODO: Test that this save changes is still tracking the deckcard.
                 return cardResponse;
             }
-            Card? card = await GetCardWithRelatedTablesAsync(requestDto.CardId!.Value);
 
-            if (card is null)
-            {
-                cardResponse.StatusCode = ResponseStatusCodes.NotFound;
-                cardResponse.Errors.Add("Card not found.");
-                cardResponse.Success = false;
-                return cardResponse;
-            }
+            
 
             deckCard = new DeckCard
             {
@@ -447,6 +457,21 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
                 .FirstOrDefaultAsync(c => cardId == c.Id);
+        }
+        private async Task<Card?> GetCardWithRelatedTablesAsync(string scryfallId)
+        {
+            return await _capstoneDbContext.Cards
+                .Include(card => card.ImageUris)
+                .Include(card => card.Colors)
+                .Include(card => card.ColorIdentity)
+                .Include(card => card.Keywords)
+                .Include(card => card.Legalities)
+                .Include(card => card.Prices)
+                .Include(card => card.RelatedUris)
+                .Include(card => card.PurchaseUris)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
+                .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .FirstOrDefaultAsync(c => scryfallId == c.ScryfallId);
         }
 
         public async Task<Response<CardVMForDeck>> UpdateDeckCardPrintingAsync(int userId, int deckId, int deckCardId, int cardId)
