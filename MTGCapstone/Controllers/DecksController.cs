@@ -54,14 +54,15 @@ namespace MTGCapstone.API.Controllers
         [HttpGet("{deckId}", Name = "GetDeckById")]
         public async Task<ActionResult<DeckVM>> GetDeck(int deckId)
         {
-            Response<DeckVM> response = await _deckService.GetDeckWithCardsAsync(deckId);
+            //var userId = UserId.Value;
+            Response<DeckVM> response = await _deckService.GetDeckWithCardsAsync(UserId, deckId);
             
             return response.StatusCode switch
             {
                 ResponseStatusCodes.Ok => Ok(response),
-                ResponseStatusCodes.BadRequest => BadRequest(response.Errors),
-                ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                ResponseStatusCodes.BadRequest => BadRequest(response),
+                ResponseStatusCodes.NotFound => NotFound(response),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response)
             };
         }
 
@@ -215,10 +216,10 @@ namespace MTGCapstone.API.Controllers
 
             return response.StatusCode switch
             {
-                ResponseStatusCodes.Ok => Ok(response.Value),
+                ResponseStatusCodes.Ok => Ok(response),
                 ResponseStatusCodes.Forbidden => Forbid(),
-                ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                ResponseStatusCodes.NotFound => NotFound(response),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response)
             };
         }
 
@@ -236,8 +237,8 @@ namespace MTGCapstone.API.Controllers
             {
                 ResponseStatusCodes.NoContent => NoContent(),
                 ResponseStatusCodes.Forbidden => Forbid(),
-                ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                ResponseStatusCodes.NotFound => NotFound(response),
+                _ => StatusCode((int)ResponseStatusCodes.Error, response)
             };
         }
 

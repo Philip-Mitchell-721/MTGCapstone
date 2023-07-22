@@ -224,7 +224,7 @@ namespace MTGCapstone.API.Services.DomainServices
             }
             return true;
         }
-        public async Task<Response<DeckVM>> GetDeckWithCardsAsync(int deckId)
+        public async Task<Response<DeckVM>> GetDeckWithCardsAsync(int? userId, int deckId)
         {
             //get deck with deckcards
             Deck? deck = await _capstoneDbContext.Decks
@@ -232,7 +232,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(d => d.DeckCategories)
                 .FirstOrDefaultAsync(d =>  d.Id == deckId);
 
-            if (deck is null || deck.IsPrivate)
+            if (deck is null || (deck.IsPrivate && (userId is null || userId != deck.UserId)))
             {
                 return new Response<DeckVM>() { Errors = { "Deck not found." }, StatusCode = ResponseStatusCodes.NotFound };
             }
@@ -251,7 +251,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.PurchaseUris)                             
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
-                .Where(c => cardIds.Contains(c.Id)).ToList();
+                .Where(c => cardIds.Contains(c.Id)).AsSplitQuery().ToList();
 
             //map the list of cards to list of CardVMForDeck
             List<CardVMForDeck> cardVMs = new();
@@ -456,6 +456,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.PurchaseUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(c => cardId == c.Id);
         }
         private async Task<Card?> GetCardWithRelatedTablesAsync(string scryfallId)
@@ -471,6 +472,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.PurchaseUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .AsSplitQuery()
                 .FirstOrDefaultAsync(c => scryfallId == c.ScryfallId);
         }
 

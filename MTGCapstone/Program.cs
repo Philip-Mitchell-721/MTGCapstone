@@ -78,7 +78,10 @@ builder.Services.AddAutoMapper(AppDomain.CurrentDomain.GetAssemblies());
 
 builder.Services.AddDbContext<CapstoneDbContext>(dbContextOptions =>
     dbContextOptions.UseSqlServer(
-        builder.Configuration["ConnectionStrings:CapstoneDbContextConnection"]));
+        builder.Configuration["ConnectionStrings:CapstoneDbContextConnection"],
+        //Adding this sqlServerOPtions.CommandTimeout should fix my timeout error
+        //TODO: Check that this works.
+        sqlServerOptions => sqlServerOptions.CommandTimeout(300)));
 
 builder.Services.AddIdentity<User, IdentityRole<int>>(opt =>
 {
