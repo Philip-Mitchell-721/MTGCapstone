@@ -140,19 +140,28 @@ namespace MTGCapstone.API.Controllers
         [HttpDelete("{deckId}")]
         public async Task<IActionResult> DeleteDeck(int deckId)
         {
-            if (!UserId.HasValue)
+            try
             {
-                return BadRequest();
-            }
-            var response = await _deckService.DeleteDeckAsync(UserId.Value, deckId);
+                if (!UserId.HasValue)
+                {
+                    return BadRequest();
+                }
+                var response = await _deckService.DeleteDeckAsync(UserId.Value, deckId);
 
-            return response.StatusCode switch
+                return response.StatusCode switch
+                {
+                    ResponseStatusCodes.NoContent => NoContent(),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response.Errors),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
+                };
+
+            }
+            catch (Exception ex)
             {
-                ResponseStatusCodes.NoContent => NoContent(),
-                ResponseStatusCodes.Forbidden => Forbid(),
-                ResponseStatusCodes.NotFound => NotFound(response.Errors),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response.Errors)
-            };
+                var response = new Response { Errors = { ex.Message, ex.InnerException?.Message ?? "" }, StatusCode = ResponseStatusCodes.Error, Success = false };
+                return StatusCode((int)ResponseStatusCodes.Error, response);
+            }
         }
 
 
@@ -226,20 +235,29 @@ namespace MTGCapstone.API.Controllers
         [HttpDelete("{deckId}/Cards/{deckCardId}")]
         public async Task<IActionResult> RemoveCardFromDeck(int deckId, int deckCardId)
         {
-            if (!UserId.HasValue)
+            try
             {
-                return BadRequest();
+                if (!UserId.HasValue)
+                {
+                    return BadRequest();
+                }
+
+                var response = await _deckService.RemoveCardFromDeckAsync(UserId.Value, deckId, deckCardId);
+
+                return response.StatusCode switch
+                {
+                    ResponseStatusCodes.NoContent => NoContent(),
+                    ResponseStatusCodes.Forbidden => Forbid(),
+                    ResponseStatusCodes.NotFound => NotFound(response),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response)
+                };
+
             }
-
-            var response = await _deckService.RemoveCardFromDeckAsync(UserId.Value, deckId, deckCardId);
-
-            return response.StatusCode switch
+            catch (Exception ex)
             {
-                ResponseStatusCodes.NoContent => NoContent(),
-                ResponseStatusCodes.Forbidden => Forbid(),
-                ResponseStatusCodes.NotFound => NotFound(response),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response)
-            };
+                var response = new Response { Errors = { ex.Message }, StatusCode = ResponseStatusCodes.Error, Success = false };
+                return StatusCode((int)ResponseStatusCodes.Error, response);
+            }
         }
 
 

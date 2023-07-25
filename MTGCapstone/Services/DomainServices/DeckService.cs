@@ -13,6 +13,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Linq.Dynamic.Core;
 using System.Net;
 using System.Reflection;
+using System.Reflection.Metadata;
 using System.Security.Claims;
 using static Microsoft.Extensions.Logging.EventSource.LoggingEventSource;
 
@@ -195,7 +196,20 @@ namespace MTGCapstone.API.Services.DomainServices
             {
                 return response;
             }
-            
+            Deck deck = response.Value!;
+            _capstoneDbContext.Entry(deck)
+                .Collection(b => b.Likes)
+                .Load(); 
+            _capstoneDbContext.Entry(deck)
+                .Collection(b => b.Comments)
+                .Load();
+            _capstoneDbContext.Entry(deck)
+                .Collection(b => b.DeckCategories)
+                .Load();
+            _capstoneDbContext.Entry(deck)
+                .Collection(b => b.DeckCards)
+                .Load();
+
             _capstoneDbContext.Decks.Remove(response.Value!);
             await _capstoneDbContext.SaveChangesAsync();
             response.StatusCode = ResponseStatusCodes.NoContent;
