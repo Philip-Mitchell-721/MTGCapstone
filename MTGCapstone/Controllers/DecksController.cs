@@ -197,7 +197,7 @@ namespace MTGCapstone.API.Controllers
         [HttpPost("{deckId}/Cards")]
         public async Task<IActionResult> AddCardToDeck(int deckId, AddCardRequestDto requestDto)
         {
-            if (!UserId.HasValue || (requestDto.CardId is null && string.IsNullOrWhiteSpace(requestDto.ScryfallId)))
+            if (!UserId.HasValue || (requestDto.CardId is null && requestDto.DeckCardId is null && string.IsNullOrWhiteSpace(requestDto.ScryfallId)))
             {
                 return BadRequest();
             }
@@ -206,6 +206,7 @@ namespace MTGCapstone.API.Controllers
             return response.StatusCode switch
             {
                 ResponseStatusCodes.Ok => Ok(response),
+                ResponseStatusCodes.NoContent => NoContent(),
                 ResponseStatusCodes.BadRequest => BadRequest(response),
                 ResponseStatusCodes.Forbidden => StatusCode((int)ResponseStatusCodes.Forbidden, response),
                 ResponseStatusCodes.NotFound => NotFound(response),
@@ -214,22 +215,30 @@ namespace MTGCapstone.API.Controllers
         }
 
         [HttpPut("{deckId}/Cards/{deckCardId}")]
-        public async Task<IActionResult> ChangePrintingForDeckCard(int deckId, int deckCardId, [FromBody] int cardId)
+        public async Task<IActionResult> ChangePrintingForDeckCard(int deckId, int deckCardId, [FromBody] string scryfallId)
         {
-            if (!UserId.HasValue)
+            try
             {
-                return BadRequest();
+                if (!UserId.HasValue || string.IsNullOrWhiteSpace(scryfallId))
+                {
+                    return BadRequest();
+                }
+
+                Response<CardVMForDeck> response = await _deckService.UpdateDeckCardPrintingAsync(UserId.Value, deckId, deckCardId, scryfallId);
+
+                return response.StatusCode switch
+                {
+                    ResponseStatusCodes.Ok => Ok(response),
+                    ResponseStatusCodes.Forbidden => StatusCode((int)ResponseStatusCodes.Forbidden, response),
+                    ResponseStatusCodes.NotFound => NotFound(response),
+                    _ => StatusCode((int)ResponseStatusCodes.Error, response)
+                };
             }
-
-            Response<CardVMForDeck> response = await _deckService.UpdateDeckCardPrintingAsync(UserId.Value, deckId, deckCardId, cardId);
-
-            return response.StatusCode switch
+            catch (Exception ex)
             {
-                ResponseStatusCodes.Ok => Ok(response),
-                ResponseStatusCodes.Forbidden => Forbid(),
-                ResponseStatusCodes.NotFound => NotFound(response),
-                _ => StatusCode((int)ResponseStatusCodes.Error, response)
-            };
+                var response = new Response { Errors = { ex.Message }, StatusCode = ResponseStatusCodes.Error, Success = false };
+                return StatusCode((int)ResponseStatusCodes.Error, response);
+            }
         }
 
         [HttpDelete("{deckId}/Cards/{deckCardId}")]

@@ -409,6 +409,20 @@ namespace MTGCapstone.API.Services.DomainServices
             {
                 return cardResponse;
             }
+            DeckCard? deckCard = null;
+            if (requestDto.DeckCardId is not null)
+            {
+                deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.Id == requestDto.DeckCardId);
+                if (deckCard is not null)
+                {
+                    deckCard.Quantity++;
+                    cardResponse.Success = true;
+                    cardResponse.StatusCode = ResponseStatusCodes.NoContent;
+                    await _capstoneDbContext.SaveChangesAsync();
+                    //TODO: Test that this save changes is still tracking the deckcard.
+                    return cardResponse;
+                }
+            }
             Card? card = null;
             if (requestDto.CardId is not null)
             {
@@ -426,7 +440,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 return cardResponse;
             }
 
-            DeckCard? deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == card.Id);
+            deckCard = deckResponse.Value?.DeckCards.FirstOrDefault(dc => dc.CardId == card.Id);
             if (deckCard is not null)
             {
                 deckCard.Quantity++;
@@ -490,7 +504,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .FirstOrDefaultAsync(c => scryfallId == c.ScryfallId);
         }
 
-        public async Task<Response<CardVMForDeck>> UpdateDeckCardPrintingAsync(int userId, int deckId, int deckCardId, int cardId)
+        public async Task<Response<CardVMForDeck>> UpdateDeckCardPrintingAsync(int userId, int deckId, int deckCardId, string scryfallId)
         {
             Response<Deck> deckResponse = await GetValidEditableDeckWithDeckCardsAsync(userId, deckId);
 
@@ -515,7 +529,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 return cardResponse;
             }
             
-            Card? card = await GetCardWithRelatedTablesAsync(cardId);
+            Card? card = await GetCardWithRelatedTablesAsync(scryfallId);
 
             if (card is null)
             {
