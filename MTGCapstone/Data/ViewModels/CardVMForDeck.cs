@@ -3,6 +3,7 @@
     public class CardVMForDeck
     {
         public int DeckCardId { get; set; }
+        public string? ScryfallId { get; set; }
         public int Quantity { get; set; }
         public List<string> Categories { get; set; } = new List<string>();
         public string? Board { get; set; }

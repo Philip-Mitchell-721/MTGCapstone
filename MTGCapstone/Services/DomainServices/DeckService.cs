@@ -484,6 +484,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.PurchaseUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .AsNoTracking()
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(c => cardId == c.Id);
         }
@@ -500,6 +501,7 @@ namespace MTGCapstone.API.Services.DomainServices
                 .Include(card => card.PurchaseUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.ImageUris)
                 .Include(card => card.CardFaces).ThenInclude(cf => cf.Colors)
+                .AsNoTracking()
                 .AsSplitQuery()
                 .FirstOrDefaultAsync(c => scryfallId == c.ScryfallId);
         }
